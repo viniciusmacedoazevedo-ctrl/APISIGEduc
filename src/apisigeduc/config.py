@@ -1,7 +1,7 @@
 """Leitura das configurações a partir de variáveis de ambiente / arquivo .env.
 
-As credenciais do SIGEduc não ficam aqui: cada usuário é cadastrado no banco
-(veja usuarios.py), com a senha criptografada pela chave SIGEDUC_CHAVE.
+As credenciais do SIGEduc não ficam aqui: cada usuário cadastra a sua na tela
+web e ela é guardada no banco, criptografada pela chave SIGEDUC_CHAVE.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 
 class ConfigError(RuntimeError):
@@ -27,17 +27,26 @@ class Config:
     url: str
     banco_url: str
     chave: str
+    segredo_sessao: str = ""
     headless: bool = True
     timeout_ms: int = 30000
     pausa_ms: int = 500
 
     @classmethod
     def carregar(cls) -> "Config":
-        load_dotenv()
+        load_dotenv(find_dotenv(usecwd=True))  # .env da pasta onde o comando roda
+        load_dotenv()  # senão, o .env da pasta do projeto
+        banco_url = os.getenv("APISIGEDUC_BANCO_URL", "")
+        if not banco_url:
+            raise ConfigError(
+                "Defina APISIGEDUC_BANCO_URL no .env, por exemplo "
+                "postgresql://apisigeduc:senha@localhost:5432/apisigeduc"
+            )
         return cls(
             url=os.getenv("SIGEDUC_URL", "https://sigeduc.rn.gov.br/sigeduc").rstrip("/"),
-            banco_url=os.getenv("APISIGEDUC_BANCO_URL", "sqlite:///apisigeduc.db"),
+            banco_url=banco_url,
             chave=os.getenv("SIGEDUC_CHAVE", ""),
+            segredo_sessao=os.getenv("APISIGEDUC_SEGREDO_SESSAO", ""),
             headless=_bool(os.getenv("SIGEDUC_HEADLESS"), True),
             timeout_ms=int(os.getenv("SIGEDUC_TIMEOUT_MS", "30000")),
             pausa_ms=int(os.getenv("SIGEDUC_PAUSA_MS", "500")),

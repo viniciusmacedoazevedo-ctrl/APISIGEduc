@@ -45,7 +45,7 @@ def lancar_notas(cliente: SigeducCliente, notas: list[Nota]) -> Relatorio:
             relatorio.sucesso += lancados
         except Exception as e:
             cliente.capturar_tela(f"notas-{turma}")
-            relatorio.falhas.append(f"{turma}/{disciplina}/{bimestre}: {e}")
+            relatorio.falhas.append(f"{turma}/{disciplina}/{bimestre}: {(str(e).splitlines() or [repr(e)])[0]}")
         cliente.pausa()
 
     return relatorio

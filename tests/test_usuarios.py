@@ -1,57 +1,59 @@
 import pytest
 from sqlalchemy import select
 
-from apisigeduc.banco import UsuarioSigeduc, criar_sessoes
+from apisigeduc.banco import CredencialSigeduc, Usuario
 from apisigeduc.config import ConfigError
 from apisigeduc.cripto import Cifra, gerar_chave
 from apisigeduc.usuarios import RepositorioUsuarios, UsuarioNaoEncontrado
 
 
-@pytest.fixture
-def sessoes(tmp_path):
-    return criar_sessoes(f"sqlite:///{tmp_path / 'teste.db'}")
+def test_cria_e_autentica(repo):
+    repo.criar("Maria@Escola.br", "Maria", "senha-forte", admin=True)
+    usuario = repo.autenticar("maria@escola.br", "senha-forte")
+    assert usuario is not None and usuario.admin
+    assert repo.autenticar("maria@escola.br", "errada") is None
+    assert repo.autenticar("ninguem@escola.br", "senha-forte") is None
 
 
-@pytest.fixture
-def repo(sessoes):
-    return RepositorioUsuarios(sessoes, Cifra(gerar_chave()))
+def test_senha_de_acesso_fica_com_hash(repo, sessoes):
+    repo.criar("a@b.c", "", "senha-forte")
+    with sessoes() as s:
+        assert "senha-forte" not in s.scalar(select(Usuario.senha_hash))
 
 
-def test_cadastra_e_recupera_credencial(repo):
-    repo.adicionar("prof.maria", "segredo123", nome="Maria", escola="EE Centro")
-    cred = repo.credencial("prof.maria")
+def test_senha_curta_e_email_duplicado(repo):
+    with pytest.raises(ValueError):
+        repo.criar("a@b.c", "", "curta")
+    repo.criar("a@b.c", "", "senha-forte")
+    with pytest.raises(ValueError):
+        repo.criar("A@B.C", "", "outra-senha")
+
+
+def test_usuario_desativado_nao_entra(repo):
+    u = repo.criar("a@b.c", "", "senha-forte")
+    repo.definir_ativo(u.id, False)
+    assert repo.autenticar("a@b.c", "senha-forte") is None
+
+
+def test_credencial_sigeduc_cifrada(repo, sessoes):
+    u = repo.criar("a@b.c", "", "senha-forte")
+    with pytest.raises(UsuarioNaoEncontrado):
+        repo.credencial(u.id)
+    repo.definir_credencial(u.id, "prof.maria", "segredo123", "EE Centro")
+    cred = repo.credencial(u.id)
     assert (cred.login, cred.senha) == ("prof.maria", "segredo123")
     assert "segredo123" not in repr(cred)
-
-
-def test_senha_fica_cifrada_no_banco(repo, sessoes):
-    repo.adicionar("prof.maria", "segredo123")
     with sessoes() as s:
-        guardada = s.scalar(select(UsuarioSigeduc.senha_cifrada))
-    assert "segredo123" not in guardada
+        assert "segredo123" not in s.scalar(select(CredencialSigeduc.senha_cifrada))
+    repo.definir_credencial(u.id, "prof.maria", "nova")
+    assert repo.credencial(u.id).senha == "nova"
 
 
-def test_chave_errada_nao_decifra(sessoes):
-    RepositorioUsuarios(sessoes, Cifra(gerar_chave())).adicionar("a", "x")
+def test_chave_errada_nao_decifra(repo, sessoes):
+    u = repo.criar("a@b.c", "", "senha-forte")
+    repo.definir_credencial(u.id, "login", "x")
     with pytest.raises(ConfigError):
-        RepositorioUsuarios(sessoes, Cifra(gerar_chave())).credencial("a")
-
-
-def test_login_duplicado(repo):
-    repo.adicionar("a", "x")
-    with pytest.raises(ValueError):
-        repo.adicionar("a", "y")
-
-
-def test_alterar_desativar_remover(repo):
-    repo.adicionar("a", "x")
-    repo.alterar_senha("a", "nova")
-    assert repo.credencial("a").senha == "nova"
-    repo.definir_ativo("a", False)
-    with pytest.raises(UsuarioNaoEncontrado):
-        repo.credencial("a")
-    repo.remover("a")
-    assert repo.listar() == []
+        RepositorioUsuarios(sessoes, Cifra(gerar_chave())).credencial(u.id)
 
 
 def test_sem_chave():

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block titulo %}Envios{% endblock %}
+{% block conteudo %}
+{% if not credencial %}
+<div class="alerta" style="margin-bottom:20px">Você ainda não cadastrou sua senha do SIGEduc.
+  <a href="/credencial">Cadastrar agora</a> — sem ela as planilhas não podem ser lançadas.</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>Enviar planilha</h2>
+  <form method="post" action="/envios" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="grade">
+      <div>
+        <label for="tipo">O que lançar</label>
+        <select id="tipo" name="tipo">
+          {% for valor, nome in TIPOS.items() %}<option value="{{ valor }}">{{ nome }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="arquivo">Planilha (.csv ou .xlsx, até 5 MB)</label>
+        <input type="file" id="arquivo" name="arquivo" accept=".csv,.xlsx" required>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" name="ignorar_erros" value="true"> Lançar só as linhas válidas se houver erros</label>
+    <div class="botoes">
+      <button class="botao secundario" name="acao" value="validar">Só conferir</button>
+      <button class="botao" name="acao" value="enviar">Conferir e lançar no SIGEduc</button>
+    </div>
+  </form>
+  <p class="suave">Colunas de notas: matricula, turma, disciplina, bimestre, nota.
+    Colunas de frequência: matricula, turma, disciplina, data (DD/MM/AAAA), presenca (P ou F).</p>
+</div>
+
+<div class="cartao">
+  <h2>{% if usuario.admin %}Últimos envios (todos os usuários){% else %}Meus envios{% endif %}</h2>
+  {% if envios %}
+  <div class="tabela"><table>
+    <tr><th>Nº</th>{% if usuario.admin %}<th>Usuário</th>{% endif %}<th>Tipo</th><th>Arquivo</th><th>Enviado em</th><th>Situação</th><th>Resultado</th></tr>
+    {% for e in envios %}
+    <tr>
+      <td><a href="/envios/{{ e.id }}">{{ e.id }}</a></td>
+      {% if usuario.admin %}<td>{{ nomes.get(e.usuario_id, e.usuario_id) }}</td>{% endif %}
+      <td>{{ TIPOS.get(e.tipo, e.tipo) }}</td>
+      <td>{{ e.arquivo_nome }}</td>
+      <td>{{ e.criado_em | data }}</td>
+      <td><span class="selo {{ e.status }}">{{ STATUS.get(e.status, e.status) }}</span></td>
+      <td class="suave">{% if e.status in ("concluido", "concluido_com_falhas") %}{{ e.sucesso }} de {{ e.total }}{% elif e.status == "falhou" %}{{ e.mensagem[:80] }}{% else %}{{ e.total }} registro(s){% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% if atualizar %}<p class="suave">A página se atualiza sozinha enquanto houver envios na fila.</p>{% endif %}
+  {% else %}
+  <p class="suave">Nenhum envio ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}

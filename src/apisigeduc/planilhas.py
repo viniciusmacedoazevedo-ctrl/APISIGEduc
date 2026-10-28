@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import io
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -25,29 +26,35 @@ def _normalizar_cabecalho(nome: str) -> str:
 
 def ler_linhas(caminho: Path) -> list[dict[str, str]]:
     """Lê um .csv (separado por ; ou ,) ou .xlsx e devolve uma lista de dicts."""
-    sufixo = caminho.suffix.lower()
+    return ler_conteudo(caminho.name, caminho.read_bytes())
+
+
+def ler_conteudo(nome: str, dados: bytes) -> list[dict[str, str]]:
+    """Como ler_linhas, mas a partir do conteúdo do arquivo (ex.: enviado pela web)."""
+    sufixo = Path(nome).suffix.lower()
     if sufixo == ".csv":
-        with caminho.open(encoding="utf-8-sig", newline="") as f:
-            amostra = f.read(4096)
-            f.seek(0)
-            dialeto = csv.Sniffer().sniff(amostra, delimiters=";,")
-            leitor = csv.DictReader(f, dialect=dialeto)
-            return [
-                {_normalizar_cabecalho(k): (v or "").strip() for k, v in linha.items() if k}
-                for linha in leitor
-            ]
+        try:
+            texto = dados.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            texto = dados.decode("cp1252")  # CSV salvo pelo Excel no Windows
+        dialeto = csv.Sniffer().sniff(texto[:4096], delimiters=";,")
+        leitor = csv.DictReader(io.StringIO(texto, newline=""), dialect=dialeto)
+        return [
+            {_normalizar_cabecalho(k): (v or "").strip() for k, v in linha.items() if k}
+            for linha in leitor
+        ]
     if sufixo in (".xlsx", ".xlsm"):
         from openpyxl import load_workbook
 
-        planilha = load_workbook(caminho, read_only=True, data_only=True).active
+        planilha = load_workbook(io.BytesIO(dados), read_only=True, data_only=True).active
         linhas = planilha.iter_rows(values_only=True)
-        cabecalho = [_normalizar_cabecalho(str(c or "")) for c in next(linhas)]
+        cabecalho = [_normalizar_cabecalho(str(c or "")) for c in next(linhas, ())]
         return [
             {k: "" if v is None else str(v).strip() for k, v in zip(cabecalho, linha) if k}
             for linha in linhas
             if any(v not in (None, "") for v in linha)
         ]
-    raise ValueError(f"Formato não suportado: {caminho.suffix} (use .csv ou .xlsx)")
+    raise ValueError(f"Formato não suportado: {sufixo or nome} (use .csv ou .xlsx)")
 
 
 def _numero(texto: str) -> float:
@@ -90,6 +97,12 @@ def frequencia_de_linha(linha: dict[str, str]) -> Frequencia:
         data=_data(linha["data"]),
         presente=_presenca(linha["presenca"]),
     )
+
+
+CONVERSORES: dict[str, Callable[[dict[str, str]], object]] = {
+    "notas": nota_de_linha,
+    "frequencia": frequencia_de_linha,
+}
 
 
 def converter(

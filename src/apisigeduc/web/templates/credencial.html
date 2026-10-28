@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Senha do SIGEduc{% endblock %}
+{% block conteudo %}
+<div class="cartao estreito" style="margin-top:0">
+  <h1>Senha do SIGEduc</h1>
+  {% if credencial %}
+    <p class="suave">Cadastrada para o login <strong>{{ credencial.login }}</strong>
+      (atualizada em {{ credencial.atualizado_em | data }}). Preencha abaixo para trocar.</p>
+  {% else %}
+    <p class="suave">Informe o login e a senha que você usa no SIGEduc. Eles são usados só para
+      lançar as suas planilhas.</p>
+  {% endif %}
+  <form method="post" action="/credencial">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label for="login">Login do SIGEduc</label>
+    <input type="text" id="login" name="login" required value="{{ credencial.login if credencial else '' }}" autocomplete="off">
+    <label for="senha">Senha do SIGEduc</label>
+    <input type="password" id="senha" name="senha" required autocomplete="new-password">
+    <label for="escola">Escola (opcional)</label>
+    <input type="text" id="escola" name="escola" value="{{ credencial.escola if credencial else '' }}">
+    <div class="botoes"><button class="botao">Salvar</button><a class="botao secundario" href="/">Cancelar</a></div>
+  </form>
+  <p class="suave">A senha é guardada criptografada e nunca é exibida de volta.</p>
+</div>
+{% endblock %}

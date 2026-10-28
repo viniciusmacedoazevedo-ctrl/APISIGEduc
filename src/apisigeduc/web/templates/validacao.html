@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Conferência{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h1>Conferência de {{ nome }}</h1>
+  <p>{{ TIPOS.get(tipo, tipo) }}: <strong>{{ leitura.registros|length }}</strong> linha(s) válida(s),
+     <strong>{{ leitura.erros|length }}</strong> com erro.</p>
+  {% if tentou_enviar and leitura.erros %}
+    <div class="aviso erro">Nada foi lançado: corrija os erros e envie de novo, ou marque
+      "Lançar só as linhas válidas".</div>
+  {% elif not leitura.erros %}
+    <div class="aviso">Planilha sem erros. Volte e use "Conferir e lançar no SIGEduc" para lançar.</div>
+  {% endif %}
+  {% if leitura.erros %}<h2>Erros</h2><pre>{{ leitura.erros | join("\n") }}</pre>{% endif %}
+  {% if leitura.registros %}
+  <h2>Prévia</h2>
+  <div class="tabela"><table>
+    {% if tipo == "notas" %}
+      <tr><th>Matrícula</th><th>Turma</th><th>Disciplina</th><th>Bimestre</th><th>Nota</th></tr>
+      {% for r in leitura.registros[:20] %}<tr><td>{{ r.matricula }}</td><td>{{ r.turma }}</td><td>{{ r.disciplina }}</td><td>{{ r.bimestre }}º</td><td>{{ "%.2f"|format(r.nota)|replace(".", ",") }}</td></tr>{% endfor %}
+    {% else %}
+      <tr><th>Matrícula</th><th>Turma</th><th>Disciplina</th><th>Data</th><th>Presença</th></tr>
+      {% for r in leitura.registros[:20] %}<tr><td>{{ r.matricula }}</td><td>{{ r.turma }}</td><td>{{ r.disciplina }}</td><td>{{ r.data.strftime("%d/%m/%Y") }}</td><td>{{ "Presente" if r.presente else "Falta" }}</td></tr>{% endfor %}
+    {% endif %}
+  </table></div>
+  {% if leitura.registros|length > 20 %}<p class="suave">Mostrando 20 de {{ leitura.registros|length }}.</p>{% endif %}
+  {% endif %}
+  <div class="botoes"><a class="botao secundario" href="/">Voltar</a></div>
+</div>
+{% endblock %}

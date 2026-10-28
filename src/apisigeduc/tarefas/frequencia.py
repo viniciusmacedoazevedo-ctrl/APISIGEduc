@@ -46,7 +46,7 @@ def lancar_frequencia(cliente: SigeducCliente, registros: list[Frequencia]) -> R
             relatorio.sucesso += lancados
         except Exception as e:
             cliente.capturar_tela(f"frequencia-{turma}")
-            relatorio.falhas.append(f"{turma}/{disciplina}/{dia:%d/%m/%Y}: {e}")
+            relatorio.falhas.append(f"{turma}/{disciplina}/{dia:%d/%m/%Y}: {(str(e).splitlines() or [repr(e)])[0]}")
         cliente.pausa()
 
     return relatorio

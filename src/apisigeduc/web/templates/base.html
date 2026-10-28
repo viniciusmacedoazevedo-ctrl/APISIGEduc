@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{% if atualizar %}<meta http-equiv="refresh" content="10">{% endif %}
+<title>{% block titulo %}APISIGEduc{% endblock %} · APISIGEduc</title>
+<style>
+  :root { --fundo:#f4f6f8; --cartao:#fff; --texto:#1d2733; --suave:#5f6b78; --borda:#dde3e9;
+          --azul:#1f5fae; --azul-escuro:#174a88; --verde:#1d7a46; --verde-claro:#e6f4ec;
+          --vermelho:#b42318; --vermelho-claro:#fdecea; --amarelo:#8a5a00; --amarelo-claro:#fff4dc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--fundo); color:var(--texto); }
+  header { background:var(--azul); color:#fff; }
+  header .barra { max-width:1040px; margin:0 auto; padding:12px 16px; display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+  header .marca { font-weight:700; font-size:17px; margin-right:auto; color:#fff; text-decoration:none; }
+  header a, header button { color:#fff; text-decoration:none; background:none; border:0; font:inherit; cursor:pointer; padding:0; opacity:.92; }
+  header a:hover, header button:hover { opacity:1; text-decoration:underline; }
+  main { max-width:1040px; margin:24px auto; padding:0 16px; }
+  h1 { font-size:22px; margin:0 0 16px; } h2 { font-size:17px; margin:0 0 12px; }
+  .cartao { background:var(--cartao); border:1px solid var(--borda); border-radius:10px; padding:20px; margin-bottom:20px; }
+  .estreito { max-width:420px; margin:48px auto; }
+  label { display:block; font-weight:600; margin:12px 0 4px; }
+  input[type=text], input[type=email], input[type=password], select, input[type=file] {
+    width:100%; padding:9px 10px; border:1px solid var(--borda); border-radius:6px; font:inherit; background:#fff; }
+  .check { display:flex; gap:8px; align-items:center; font-weight:400; }
+  .botoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  button.botao, a.botao { display:inline-block; padding:9px 16px; border-radius:6px; border:1px solid var(--azul);
+    background:var(--azul); color:#fff; font:inherit; font-weight:600; cursor:pointer; text-decoration:none; }
+  button.botao:hover, a.botao:hover { background:var(--azul-escuro); }
+  .secundario { background:#fff !important; color:var(--azul) !important; }
+  .pequeno { padding:5px 10px !important; font-size:13px; }
+  .aviso { padding:10px 14px; border-radius:6px; margin-bottom:16px; background:var(--verde-claro); color:var(--verde); }
+  .aviso.erro { background:var(--vermelho-claro); color:var(--vermelho); }
+  .alerta { background:var(--amarelo-claro); color:var(--amarelo); padding:10px 14px; border-radius:6px; }
+  .tabela { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:9px 8px; border-bottom:1px solid var(--borda); vertical-align:top; }
+  th { color:var(--suave); font-weight:600; font-size:13px; }
+  .suave { color:var(--suave); font-size:13px; }
+  .selo { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; font-weight:600; background:#eef1f4; color:var(--suave); white-space:nowrap; }
+  .selo.concluido { background:var(--verde-claro); color:var(--verde); }
+  .selo.concluido_com_falhas, .selo.processando { background:var(--amarelo-claro); color:var(--amarelo); }
+  .selo.falhou { background:var(--vermelho-claro); color:var(--vermelho); }
+  .grade { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:20px; }
+  pre { white-space:pre-wrap; background:#f7f8fa; border:1px solid var(--borda); border-radius:6px; padding:10px; font-size:13px; }
+  form.linha { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  form.linha input { width:auto; }
+</style>
+</head>
+<body>
+<header><div class="barra">
+  <a class="marca" href="/">APISIGEduc</a>
+  {% if usuario %}
+    <a href="/">Envios</a>
+    <a href="/credencial">Senha do SIGEduc</a>
+    {% if usuario.admin %}<a href="/admin/usuarios">Usuários</a>{% endif %}
+    <a href="/conta">{{ usuario.nome or usuario.email }}</a>
+    <form method="post" action="/sair" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button>Sair</button></form>
+  {% endif %}
+</div></header>
+<main>
+  {% for tipo, texto in avisos %}<div class="aviso {{ tipo }}">{{ texto }}</div>{% endfor %}
+  {% block conteudo %}{% endblock %}
+</main>
+</body>
+</html>

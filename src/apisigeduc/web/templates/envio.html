@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titulo %}Envio {{ envio.id }}{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h1>Envio nº {{ envio.id }} <span class="selo {{ envio.status }}">{{ STATUS.get(envio.status, envio.status) }}</span></h1>
+  <div class="tabela"><table>
+    <tr><th>Usuário</th><td>{{ dono.nome or dono.email }}</td></tr>
+    <tr><th>Tipo</th><td>{{ TIPOS.get(envio.tipo, envio.tipo) }}</td></tr>
+    <tr><th>Arquivo</th><td>{{ envio.arquivo_nome }}</td></tr>
+    <tr><th>Enviado em</th><td>{{ envio.criado_em | data }}</td></tr>
+    <tr><th>Início</th><td>{{ envio.iniciado_em | data }}</td></tr>
+    <tr><th>Fim</th><td>{{ envio.concluido_em | data }}</td></tr>
+    <tr><th>Lançados</th><td>{{ envio.sucesso }} de {{ envio.total }}</td></tr>
+    {% if envio.mensagem %}<tr><th>Mensagem</th><td>{{ envio.mensagem }}</td></tr>{% endif %}
+  </table></div>
+  {% if envio.falhas %}<h2 style="margin-top:20px">Falhas</h2><pre>{{ envio.falhas }}</pre>{% endif %}
+  {% if atualizar %}<p class="suave">Esta página se atualiza sozinha a cada 10 segundos.</p>{% endif %}
+  <div class="botoes"><a class="botao secundario" href="/">Voltar</a></div>
+</div>
+{% endblock %}

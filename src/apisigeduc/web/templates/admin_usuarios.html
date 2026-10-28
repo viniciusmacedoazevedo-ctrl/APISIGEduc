@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}Usuários{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h2>Novo usuário</h2>
+  <form method="post" action="/admin/usuarios">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="grade">
+      <div><label for="nome">Nome</label><input type="text" id="nome" name="nome"></div>
+      <div><label for="email">E-mail</label><input type="email" id="email" name="email" required></div>
+      <div><label for="senha">Senha inicial (mín. 8)</label><input type="password" id="senha" name="senha" required minlength="8" autocomplete="new-password"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="admin" value="true"> Administrador</label>
+    <div class="botoes"><button class="botao">Criar usuário</button></div>
+  </form>
+</div>
+
+<div class="cartao">
+  <h2>Usuários</h2>
+  <div class="tabela"><table>
+    <tr><th>Nome</th><th>E-mail</th><th>SIGEduc</th><th>Situação</th><th>Ações</th></tr>
+    {% for u in usuarios %}
+    {% set c = credenciais[u.id] %}
+    <tr>
+      <td>{{ u.nome }}{% if u.admin %} <span class="selo">admin</span>{% endif %}</td>
+      <td>{{ u.email }}</td>
+      <td>{% if c %}{{ c.login }}{% if c.escola %}<br><span class="suave">{{ c.escola }}</span>{% endif %}{% else %}<span class="suave">não cadastrado</span>{% endif %}</td>
+      <td><span class="selo {{ 'concluido' if u.ativo else 'falhou' }}">{{ "Ativo" if u.ativo else "Desativado" }}</span></td>
+      <td>
+        <form class="linha" method="post" action="/admin/usuarios/{{ u.id }}/ativo">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="ativo" value="{{ 'false' if u.ativo else 'true' }}">
+          <button class="botao secundario pequeno">{{ "Desativar" if u.ativo else "Reativar" }}</button>
+        </form>
+        <form class="linha" method="post" action="/admin/usuarios/{{ u.id }}/senha" style="margin-top:6px">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="password" name="senha" placeholder="Nova senha" required minlength="8" autocomplete="new-password">
+          <button class="botao secundario pequeno">Redefinir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endblock %}
