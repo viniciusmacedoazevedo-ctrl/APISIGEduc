@@ -109,6 +109,12 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as e:
         log.error(str(e))
         return 1
+    except Exception as e:
+        if args.verbose:
+            raise
+        log.error("%s", str(e).splitlines()[0])
+        log.error("Veja a captura de tela em screenshots/ ou rode de novo com -v para detalhes.")
+        return 1
 
 
 if __name__ == "__main__":

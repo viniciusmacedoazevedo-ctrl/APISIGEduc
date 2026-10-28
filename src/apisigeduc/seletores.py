@@ -10,10 +10,17 @@ Quando o layout do SIGEduc mudar, ajuste apenas este arquivo.
 LOGIN_PATH = "/verTelaLogin.do"
 LOGIN_USUARIO = "input[name='user.login']"
 LOGIN_SENHA = "input[name='user.senha']"
-LOGIN_ENTRAR = "input[type='submit'][value='Entrar'], button:has-text('Entrar')"
+# Botão de envio do formulário de login. Se nenhum for encontrado, o login
+# formulário é enviado diretamente.
+LOGIN_ENTRAR = (
+    "form:has(input[name='user.senha']) input[type='submit'], "
+    "form:has(input[name='user.senha']) input[type='image'], "
+    "form:has(input[name='user.senha']) button"
+)
 LOGIN_ERRO = ".erros, #painel-erros, .msgErro"
-# Elemento que só existe depois de logado (ex.: link "Sair").
-LOGADO = "a:has-text('Sair')"
+# Elemento que só existe depois de logado (ex.: link "Sair"). Também se
+# considera logado quando o campo de senha some da página.
+LOGADO = "a:has-text('Sair'), a:has-text('SAIR')"
 
 # --- Lançamento de notas (A MAPEAR) ----------------------------------------
 NOTAS_MENU = "text=Lançar Notas"

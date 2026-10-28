@@ -65,10 +65,16 @@ class SigeducCliente:
         self.page.goto(self.config.url + S.LOGIN_PATH)
         self.page.fill(S.LOGIN_USUARIO, self.config.usuario)
         self.page.fill(S.LOGIN_SENHA, self.config.senha)
-        self.page.click(S.LOGIN_ENTRAR)
+        botao = self.page.locator(S.LOGIN_ENTRAR)
+        if botao.count() > 0:
+            botao.first.click()
+        else:
+            log.debug("Botão de login não encontrado; enviando o formulário diretamente")
+            self.page.locator(S.LOGIN_SENHA).evaluate("campo => campo.form.requestSubmit()")
         self.page.wait_for_load_state("networkidle")
 
-        if self.page.locator(S.LOGADO).count() == 0:
+        ainda_no_login = self.page.locator(S.LOGIN_SENHA).count() > 0
+        if ainda_no_login and self.page.locator(S.LOGADO).count() == 0:
             erro = self.page.locator(S.LOGIN_ERRO)
             mensagem = erro.first.inner_text().strip() if erro.count() else "motivo desconhecido"
             raise ErroLogin(f"Não foi possível entrar no SIGEduc: {mensagem}")
