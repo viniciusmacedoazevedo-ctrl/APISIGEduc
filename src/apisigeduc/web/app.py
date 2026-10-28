@@ -47,9 +47,10 @@ def criar_app(
     iniciar_worker: bool = True,
     cookie_seguro: bool = False,
 ) -> FastAPI:
-    if not config.segredo_sessao:
+    if len(config.segredo_sessao) < 32:
         raise ConfigError(
-            "Defina APISIGEDUC_SEGREDO_SESSAO no .env. Gere com: apisigeduc gerar-chave"
+            "APISIGEDUC_SEGREDO_SESSAO ausente ou curto demais no .env. Use o valor gerado por: "
+            "apisigeduc gerar-chave"
         )
 
     @asynccontextmanager

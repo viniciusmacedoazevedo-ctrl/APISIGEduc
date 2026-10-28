@@ -106,3 +106,12 @@ def test_admin_gerencia_usuarios(app, repo):
     cliente.post(f"/admin/usuarios/{novo.id}/ativo", data={"ativo": "false", "csrf_token": csrf})
     assert repo.autenticar("novo@escola.br", "senha-novo") is None
     _entrar(app, "prof@escola.br", "senha-prof")  # outros continuam entrando
+
+
+def test_recusa_segredo_de_sessao_fraco(config, sessoes, repo):
+    from dataclasses import replace
+
+    from apisigeduc.config import ConfigError
+
+    with pytest.raises(ConfigError):
+        criar_app(replace(config, segredo_sessao="@hiperlink"), sessoes, repo, iniciar_worker=False)
