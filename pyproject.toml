@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apisigeduc"
+version = "0.1.0"
+description = "Automação para alimentar dados no SIGEduc a partir de planilhas"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.44",
+    "python-dotenv>=1.0",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+apisigeduc = "apisigeduc.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
