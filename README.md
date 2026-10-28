@@ -30,6 +30,25 @@ cp .env.example .env
 apisigeduc gerar-chave      # copie a chave para SIGEDUC_CHAVE no .env
 ```
 
+## Manter a pasta do projeto atualizada (Windows)
+
+Com a pasta do projeto ligada ao GitHub (cópia Git), as alterações publicadas chegam
+nela com:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\atualizar.ps1
+```
+
+Para atualizar sozinho a cada 10 minutos (tarefa agendada do Windows):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\agendar-atualizacao.ps1
+```
+
+O histórico fica em `logs\atualizacao.log`. `.env`, `apisigeduc.db`, `.venv` e
+`screenshots` nunca são alterados pela atualização. Se o `pyproject.toml` mudar, as
+dependências são reinstaladas automaticamente.
+
 ## Usuários do SIGEduc (multiusuário)
 
 As contas do SIGEduc ficam na tabela `usuarios_sigeduc` do banco (SQLite em
