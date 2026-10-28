@@ -1,4 +1,8 @@
-"""Leitura das configurações a partir de variáveis de ambiente / arquivo .env."""
+"""Leitura das configurações a partir de variáveis de ambiente / arquivo .env.
+
+As credenciais do SIGEduc não ficam aqui: cada usuário é cadastrado no banco
+(veja usuarios.py), com a senha criptografada pela chave SIGEDUC_CHAVE.
+"""
 
 from __future__ import annotations
 
@@ -21,26 +25,19 @@ def _bool(valor: str | None, padrao: bool) -> bool:
 @dataclass(frozen=True)
 class Config:
     url: str
-    usuario: str
-    senha: str
+    banco_url: str
+    chave: str
     headless: bool = True
     timeout_ms: int = 30000
     pausa_ms: int = 500
 
     @classmethod
-    def carregar(cls, exigir_credenciais: bool = True) -> "Config":
+    def carregar(cls) -> "Config":
         load_dotenv()
-        usuario = os.getenv("SIGEDUC_USUARIO", "")
-        senha = os.getenv("SIGEDUC_SENHA", "")
-        if exigir_credenciais and (not usuario or not senha):
-            raise ConfigError(
-                "Defina SIGEDUC_USUARIO e SIGEDUC_SENHA no arquivo .env "
-                "(veja .env.example)."
-            )
         return cls(
             url=os.getenv("SIGEDUC_URL", "https://sigeduc.rn.gov.br/sigeduc").rstrip("/"),
-            usuario=usuario,
-            senha=senha,
+            banco_url=os.getenv("APISIGEDUC_BANCO_URL", "sqlite:///apisigeduc.db"),
+            chave=os.getenv("SIGEDUC_CHAVE", ""),
             headless=_bool(os.getenv("SIGEDUC_HEADLESS"), True),
             timeout_ms=int(os.getenv("SIGEDUC_TIMEOUT_MS", "30000")),
             pausa_ms=int(os.getenv("SIGEDUC_PAUSA_MS", "500")),
