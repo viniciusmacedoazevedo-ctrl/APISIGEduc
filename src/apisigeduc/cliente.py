@@ -46,7 +46,11 @@ class SigeducCliente:
 
     def __enter__(self) -> "SigeducCliente":
         self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(headless=self.config.headless)
+        self._browser = self._pw.chromium.launch(
+            headless=self.config.headless,
+            # português e sem a janela "traduzir esta página" do navegador
+            args=["--lang=pt-BR", "--disable-features=Translate,TranslateUI"],
+        )
         contexto = self._browser.new_context(locale="pt-BR")
         contexto.set_default_timeout(self.config.timeout_ms)
         self.page = contexto.new_page()

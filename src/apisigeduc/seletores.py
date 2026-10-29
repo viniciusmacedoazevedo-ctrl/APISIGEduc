@@ -64,6 +64,9 @@ PORTAL_PROFESSOR = (
 PORTAL_TABELA_TURMAS = "th:has-text('Componente'), td:text-is('Componente')"
 # Ao clicar no código da turma (ex.: EFV6A) abre a Escola Digital da turma;
 # no menu lateral Turmas > Estudantes ficam os cartões com nome e matrícula.
-TURMA_ESTUDANTES = "a:text-is('Estudantes'), a:has-text('Estudantes')"
+TURMA_ESTUDANTES = "a:text-is('Estudantes')"
+# Menu lateral "Turmas" da Escola Digital. Quando está fechado, o item
+# "Estudantes" fica escondido e é preciso abri-lo antes.
+TURMA_MENU = "a:text-is('Turmas'), :text-is('Turmas')"
 # Indica que a lista de estudantes carregou (cartões com "Matrícula: 000...").
 TURMA_LISTA_ESTUDANTES = "text=/Matr[ií]cula\\s*:?\\s*\\d{4,}/"

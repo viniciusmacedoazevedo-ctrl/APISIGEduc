@@ -230,19 +230,38 @@ class LeitorPortal:
                 link.first.click()
                 # espera a turma abrir: o menu "Estudantes" aparece nesta aba ou numa nova
                 for _ in range(self.cliente.config.timeout_ms // 250):
-                    if novas or self.page.locator(S.TURMA_ESTUDANTES).count() > 0:
+                    if novas or self.page.locator(S.TURMA_MENU).count() > 0:
                         break
                     self.page.wait_for_timeout(250)
             finally:
                 contexto.remove_listener("page", ao_abrir)
             nova = novas[-1] if novas else self.page
-        self._esperar(nova, S.TURMA_ESTUDANTES, f"O menu 'Estudantes' da turma {turma.codigo}")
+        self._esperar(nova, S.TURMA_MENU, f"O menu 'Turmas' da Escola Digital da turma {turma.codigo}")
         return nova
+
+    def _clicar_estudantes(self, pagina, turma: TurmaPortal) -> None:
+        """Clica em Turmas > Estudantes, abrindo o menu Turmas se estiver fechado."""
+
+        def visivel(seletor):
+            return next((item for item in pagina.locator(seletor).all() if item.is_visible()), None)
+
+        if visivel(S.TURMA_ESTUDANTES) is None:
+            menu = visivel(S.TURMA_MENU)
+            if menu is not None:
+                menu.click()
+                for _ in range(20):  # espera o menu abrir
+                    if visivel(S.TURMA_ESTUDANTES) is not None:
+                        break
+                    pagina.wait_for_timeout(250)
+        item = visivel(S.TURMA_ESTUDANTES)
+        if item is None:
+            raise LookupError(f"Item 'Estudantes' do menu Turmas não encontrado na turma {turma.codigo} ({pagina.url})")
+        item.click()
 
     def listar_estudantes(self, turma: TurmaPortal) -> list[Estudante]:
         pagina = self.abrir_turma(turma)
         try:
-            pagina.locator(S.TURMA_ESTUDANTES).first.click()
+            self._clicar_estudantes(pagina, turma)
             self._esperar(pagina, S.TURMA_LISTA_ESTUDANTES, f"A lista de estudantes da turma {turma.codigo}")
             pagina.wait_for_timeout(500)  # termina de desenhar os cartões
             estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES))
