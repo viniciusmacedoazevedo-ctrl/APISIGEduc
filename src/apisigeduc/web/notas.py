@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Upload
 from fastapi.responses import HTMLResponse, Response
 
 from .. import composicoes as comp
+from .. import desempenho
 from .. import envios
 from .. import planilha_notas
 from .. import turmas as turmas_repo
@@ -21,6 +22,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
     sessoes, repo = ctx.sessoes, ctx.repo
     pagina, avisar, voltar, verificar_csrf = ctx.pagina, ctx.avisar, ctx.voltar, ctx.verificar_csrf
     usuario_logado = ctx.usuario_logado
+    minima = ctx.config.media_minima
 
     def composicao_permitida(composicao_id: int, usuario: Usuario) -> comp.Estrutura:
         try:
@@ -248,6 +250,67 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             dados,
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="medias-{turma.codigo}-{composicao.bimestre}bim.csv"'},
+        )
+
+    # --- desempenho -----------------------------------------------------------
+    @app.get("/notas/{composicao_id}/turmas/{turma_id}/desempenho", response_class=HTMLResponse)
+    def desempenho_turma(request: Request, composicao_id: int, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
+        estrutura, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        linhas = comp.planilha(sessoes, composicao_id, turma_id)
+        menor, maior = desempenho.rankings(linhas, minima)
+        return pagina(
+            request,
+            "desempenho_turma.html",
+            usuario,
+            composicao=estrutura.composicao,
+            turma=turma,
+            linhas=linhas,
+            resumo=desempenho.resumir([l.media for l in linhas], minima),
+            avaliacoes=desempenho.por_avaliacao(estrutura, linhas),
+            menor=menor,
+            maior=maior,
+            pendentes=[l for l in linhas if l.media is None],
+            minima_rede=minima,
+        )
+
+    @app.get("/notas/{composicao_id}/desempenho", response_class=HTMLResponse)
+    def desempenho_composicao(request: Request, composicao_id: int, usuario: Usuario = Depends(usuario_logado)):
+        estrutura = composicao_permitida(composicao_id, usuario)
+        por_turma, todas, codigo = [], [], {}
+        for _, turma in comp.turmas_aplicadas(sessoes, composicao_id):
+            linhas = comp.planilha(sessoes, composicao_id, turma.id)
+            por_turma.append((turma, desempenho.resumir([l.media for l in linhas], minima)))
+            for l in linhas:
+                codigo[id(l)] = turma.codigo
+            todas.extend(linhas)
+        menor, maior = desempenho.rankings(todas, minima, limite=15, turma_de=lambda l: codigo[id(l)])
+        return pagina(
+            request,
+            "desempenho_composicao.html",
+            usuario,
+            composicao=estrutura.composicao,
+            turmas=por_turma,
+            geral=desempenho.resumir([l.media for l in todas], minima),
+            menor=menor,
+            maior=maior,
+            minima_rede=minima,
+        )
+
+    @app.get("/turmas/{turma_id}/desempenho", response_class=HTMLResponse)
+    def desempenho_anual(request: Request, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
+        turma = ctx.turma_permitida(turma_id, usuario)
+        bimestres, alunos, avisos = desempenho.anual(sessoes, turma.usuario_id, turma.id, minima)
+        contagem = {s: sum(1 for a in alunos if a.situacao == s) for s in ("recuperacao", "atencao", "ok", "sem_notas")}
+        return pagina(
+            request,
+            "desempenho_anual.html",
+            usuario,
+            turma=turma,
+            bimestres=bimestres,
+            alunos=alunos,
+            avisos=avisos,
+            contagem=contagem,
+            minima_rede=minima,
         )
 
     @app.get("/notas/{composicao_id}/turmas/{turma_id}/planilha.xlsx")

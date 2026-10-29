@@ -33,6 +33,8 @@ class Config:
     pausa_ms: int = 500
     # quanto tempo esperar uma pessoa resolver a verificação humana do login
     espera_verificacao_s: int = 300
+    # média mínima para aprovação (rede estadual do RN: 6,0)
+    media_minima: float = 6.0
 
     @classmethod
     def carregar(cls) -> "Config":
@@ -53,4 +55,5 @@ class Config:
             timeout_ms=int(os.getenv("SIGEDUC_TIMEOUT_MS", "30000")),
             pausa_ms=int(os.getenv("SIGEDUC_PAUSA_MS", "500")),
             espera_verificacao_s=int(os.getenv("SIGEDUC_ESPERA_VERIFICACAO_S", "300")),
+            media_minima=float(os.getenv("APISIGEDUC_MEDIA_MINIMA", "6").replace(",", ".")),
         )

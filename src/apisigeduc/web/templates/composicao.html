@@ -47,6 +47,7 @@
 
 <div class="cartao">
   <h2>Turmas com esta composição</h2>
+  {% if aplicadas %}<p><a class="botao secundario pequeno" href="/notas/{{ composicao.id }}/desempenho">Desempenho e rankings das turmas</a></p>{% endif %}
   {% if aplicadas %}
   <div class="tabela"><table>
     <tr><th>Turma</th><th>Componente</th><th>Notas completas</th><th>Enviado ao SIGEduc</th><th></th></tr>
@@ -57,7 +58,8 @@
       <td>{{ t.componente }}</td>
       <td><span class="selo {{ 'concluido' if feitos == todos and todos else 'processando' }}">{{ feitos }} de {{ todos }}</span></td>
       <td class="suave">{{ ligacao.enviado_em | data }}</td>
-      <td><a class="botao pequeno" href="/notas/{{ composicao.id }}/turmas/{{ t.id }}">Lançar notas</a></td>
+      <td><a class="botao pequeno" href="/notas/{{ composicao.id }}/turmas/{{ t.id }}">Lançar notas</a>
+        <a class="suave" href="/notas/{{ composicao.id }}/turmas/{{ t.id }}/desempenho" style="margin-left:8px">desempenho</a></td>
     </tr>
     {% endfor %}
   </table></div>

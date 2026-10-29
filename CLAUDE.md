@@ -27,6 +27,7 @@ no `README.md`.
 | Login no SIGEduc | funciona; a verificação humana ("não sou um robô") é resolvida por uma pessoa com o navegador visível |
 | Importar turmas e estudantes (Portal do Professor > Escola Digital > Turmas > Estudantes) | **funcionando no SIGEduc real** |
 | Composição de notas em grupos e avaliações, média, Excel, modo chamada no celular, PWA | pronta e testada (falta uso real) |
+| Desempenho: indicadores, distribuição, rankings, comparação de turmas, ano letivo | pronta e testada |
 | **Digitar as médias na tela de notas do SIGEduc** | **pendente**: seletores "A MAPEAR" em `seletores.py`, rotina em `tarefas/notas.py` |
 | Lançamento de frequência no SIGEduc | pendente, mesma situação |
 
@@ -55,6 +56,11 @@ no `README.md`.
 - Média: soma ou média em dois níveis (grupos e avaliações); arredondamento escolar com
   1 casa (8,25 → 8,3). Planilha Excel usa fórmulas com a mesma regra.
 - PWA nunca guarda dados de alunos no aparelho; só arquivos fixos.
+- Média mínima 6,0 (RN, `APISIGEDUC_MEDIA_MINIMA`), média anual = média dos 4 bimestres.
+  Termos da LDB: "rendimento escolar", "estudos de recuperação", "menor rendimento".
+  Indicadores são de acompanhamento (a frequência, 75%, ainda não é importada).
+- Gráficos em HTML/CSS seguindo a skill dataviz: uma cor (verde-quadro), referência 6,0
+  rotulada, "abaixo da média" é situação em amarelo-giz com ícone e texto, tabela equivalente.
 - Interface em português com só a primeira letra maiúscula em títulos e botões.
 - Identidade visual: verde-quadro `#1E4D3B`, papel `#F6F8F6`, caneta vermelha só para
   erro de nota, giz amarelo para pendências, fonte Atkinson Hyperlegible.

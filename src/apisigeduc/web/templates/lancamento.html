@@ -5,6 +5,7 @@
   <p class="suave" style="margin:0 0 4px"><a href="/notas/{{ composicao.id }}">{{ composicao.nome }}</a></p>
   <h1>{{ turma.codigo }} {{ turma.componente }}</h1>
   <p class="suave" style="margin:0 0 10px">{{ turma.codigo | descrever_turma }}, {{ turma.escola }}</p>
+  <p style="margin:0 0 10px"><a class="botao secundario pequeno" href="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/desempenho">Ver desempenho da turma</a></p>
   <details class="formula suave">
     <summary>Como a média é calculada</summary>
     {% for linha in estrutura.formula() %}<div>{{ linha }}</div>{% endfor %}

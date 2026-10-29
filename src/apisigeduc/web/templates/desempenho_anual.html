@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% import "_graficos.html" as g %}
+{% block titulo %}Ano letivo {{ turma.codigo }}{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <p class="suave" style="margin:0 0 4px"><a href="/turmas/{{ turma.id }}">{{ turma.codigo }} {{ turma.componente }}</a></p>
+  <h1>Acompanhamento do ano letivo</h1>
+  <p class="suave" style="margin:0">{{ turma.codigo | descrever_turma }}. A média anual é a média aritmética dos quatro bimestres; mínima {{ minima_rede|nota }}.</p>
+  {% for aviso in avisos %}<p class="alerta" style="margin-top:12px">{{ aviso }}</p>{% endfor %}
+</div>
+
+<div class="cartao">
+  {% if bimestres %}
+  <div class="indicadores">
+    <div class="indicador {{ 'alerta-indicador' if contagem.recuperacao }}"><span class="rotulo">{% if contagem.recuperacao %}<span aria-hidden="true">▼▼ </span>{% endif %}Recuperação</span><span class="valor">{{ contagem.recuperacao }}</span><span class="suave">não alcançam {{ minima_rede|nota }} só com as próximas notas</span></div>
+    <div class="indicador {{ 'alerta-indicador' if contagem.atencao }}"><span class="rotulo">{% if contagem.atencao %}<span aria-hidden="true">▼ </span>{% endif %}Atenção</span><span class="valor">{{ contagem.atencao }}</span><span class="suave">média abaixo ou algum bimestre abaixo</span></div>
+    <div class="indicador"><span class="rotulo">Na média</span><span class="valor">{{ contagem.ok }}</span><span class="suave">todos os bimestres na média</span></div>
+    <div class="indicador"><span class="rotulo">Bimestres lançados</span><span class="valor">{{ bimestres|length }} de 4</span><span class="suave">{{ bimestres|join("º, ") }}º</span></div>
+  </div>
+  <div class="tabela" style="margin-top:16px"><table class="anual">
+    <tr><th>Estudante</th>{% for b in [1, 2, 3, 4] %}<th style="text-align:center">{{ b }}º bim.</th>{% endfor %}
+        <th style="text-align:center">Média parcial</th><th style="text-align:center">Precisa nos próximos</th><th>Situação</th></tr>
+    {% for a in alunos %}
+    <tr>
+      <td>{{ a.nome }}<br><span class="suave">{{ a.matricula }}</span></td>
+      {% for b in [1, 2, 3, 4] %}
+      {% set m = a.bimestres.get(b) %}
+      <td style="text-align:center" class="num {{ 'abaixo' if m is not none and m < minima_rede }}">{% if m is not none %}{{ m|nota }}{% if m < minima_rede %}<span class="sr"> (abaixo)</span>{% endif %}{% else %}<span class="suave">—</span>{% endif %}</td>
+      {% endfor %}
+      <td style="text-align:center" class="num"><strong>{{ a.media_parcial|nota if a.media_parcial is not none else "—" }}</strong></td>
+      <td style="text-align:center" class="num">{% if a.necessario is none %}<span class="suave">—</span>{% elif a.necessario <= 0 %}<span class="suave">já alcançou</span>{% elif a.necessario > 10 %}<span class="suave">mais de 10</span>{% else %}{{ a.necessario|nota }}{% endif %}</td>
+      <td>{{ g.situacao(a.situacao) }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  <p class="suave">"Precisa nos próximos": média necessária nos bimestres que faltam para a média anual chegar a {{ minima_rede|nota }}.
+    Células com fundo amarelo: bimestre abaixo da média.</p>
+  {% else %}
+  <p>Nenhuma composição de notas aplicada nesta turma ainda. <a href="/notas">Criar ou aplicar uma composição</a>.</p>
+  {% endif %}
+</div>
+{% include "_base_legal.html" %}
+{% endblock %}

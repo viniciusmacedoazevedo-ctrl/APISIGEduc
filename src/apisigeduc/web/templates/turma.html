@@ -11,7 +11,7 @@
     <a class="botao secundario" href="/turmas/{{ turma.id }}/modelo-frequencia.csv">Baixar modelo de frequência</a>
   </div>
   <p>Notas: {% for c in composicoes %}<a class="chip" href="/notas/{{ c.id }}/turmas/{{ turma.id }}">{{ c.nome }}</a>{% else %}<span class="suave">nenhuma composição aplicada.</span>{% endfor %}
-     · <a href="/notas">Composições de notas</a></p>
+     · <a href="/notas">Composições de notas</a> · <a href="/turmas/{{ turma.id }}/desempenho">Acompanhamento do ano letivo</a></p>
   <p class="suave">Os modelos já vêm com matrícula, turma e componente. Preencha bimestre e nota (ou data
     e presença) e envie em <a href="/">Envios</a>.</p>
 </div>

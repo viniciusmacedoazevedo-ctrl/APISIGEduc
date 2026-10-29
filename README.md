@@ -189,6 +189,31 @@ tela mostra a fórmula por extenso e avisa quando faltam pontos (ex.: Trabalho c
 As notas ficam ligadas à turma e à matrícula, então continuam valendo depois de
 **Atualizar turmas** a partir do SIGEduc.
 
+### Desempenho e indicadores
+
+Depois de lançar as notas, cada turma tem a página **Ver desempenho da turma**:
+
+- **Indicadores:** média da turma (com mediana, menor e maior), quantos estão com média
+  igual ou acima de 6,0, quantos estão abaixo (indicados para estudos de recuperação) e
+  quantos ainda não têm média.
+- **Distribuição** das médias por faixa, com a linha da média mínima, e **média de cada
+  avaliação** (escala 0 a 10), que mostra onde a turma teve mais dificuldade.
+- **Rankings:** *menor rendimento* (abaixo de 6,0, do mais distante ao mais próximo, com
+  quanto falta) e *maior rendimento*.
+
+Na composição, **Desempenho e rankings das turmas** compara as turmas e junta os rankings.
+Na turma, **Acompanhamento do ano letivo** mostra as médias de cada bimestre, a média
+parcial, quanto o estudante precisa nos bimestres restantes para a média anual chegar a
+6,0 e a situação (na média, atenção, recuperação).
+
+Parâmetros e nomenclatura: média mínima **6,0** e média anual como média aritmética dos
+quatro bimestres (rede estadual do RN, Portaria nº 1033/2008/SEEC/RN; conferir a norma
+vigente); "rendimento escolar", "estudos de recuperação" e "alunos de menor rendimento"
+(LDB, Lei nº 9.394/96, arts. 12, V; 13, IV; 24, V); frequência mínima de 75% (LDB, art. 24,
+VI; ainda não importada). A média mínima pode ser trocada no `.env` com
+`APISIGEDUC_MEDIA_MINIMA`. Os rankings são para o professor e a equipe pedagógica, não
+para divulgação aos estudantes.
+
 ### Preencher no Excel
 
 Na tela de notas de cada turma, **Baixar planilha (Excel)** gera a grade da turma: células
@@ -283,6 +308,7 @@ src/apisigeduc/
   turmas.py       turmas e estudantes importados
   composicoes.py  composição das notas (grupos e avaliações) e cálculo da média
   planilha_notas.py  exportar/importar a grade de notas em Excel (.xlsx)
+  desempenho.py   indicadores, rankings e acompanhamento do ano letivo
   web/            tela web (FastAPI + modelos HTML); web/notas.py: telas de notas;
                   web/static: estilo, ícones, manifesto e service worker (PWA)
   cliente.py      sessão do navegador e login no SIGEduc

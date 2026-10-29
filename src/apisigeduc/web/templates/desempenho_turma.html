@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "_graficos.html" as g %}
+{% block titulo %}Desempenho {{ turma.codigo }}{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <p class="suave" style="margin:0 0 4px"><a href="/notas/{{ composicao.id }}">{{ composicao.nome }}</a> · <a href="/notas/{{ composicao.id }}/turmas/{{ turma.id }}">lançar notas</a></p>
+  <h1>Desempenho de {{ turma.codigo }} em {{ turma.componente }}</h1>
+  <p class="suave" style="margin:0">{{ BIMESTRES[composicao.bimestre] }} de {{ composicao.ano_letivo }}, {{ turma.codigo | descrever_turma }}</p>
+</div>
+
+<div class="cartao">
+  {{ g.indicadores(resumo) }}
+  {% if resumo.com_media %}
+  <div class="graficos">
+    {{ g.distribuicao(resumo) }}
+    {{ g.avaliacoes(avaliacoes, resumo.minima) }}
+  </div>
+  {% else %}
+  <p>Ainda não há médias nesta turma. <a href="/notas/{{ composicao.id }}/turmas/{{ turma.id }}">Lance as notas</a> para ver os indicadores.</p>
+  {% endif %}
+</div>
+
+<div class="grade-cartoes">
+  <div class="cartao">
+    <h2>Menor rendimento</h2>
+    <p class="suave">Média abaixo de {{ resumo.minima|nota }}, do mais distante ao mais próximo da média. Indicados para estudos de recuperação (LDB, art. 24, V, "e").</p>
+    {{ g.ranking(menor, resumo.minima, True) }}
+  </div>
+  <div class="cartao">
+    <h2>Maior rendimento</h2>
+    <p class="suave">As maiores médias do bimestre.</p>
+    {{ g.ranking(maior, resumo.minima, False) }}
+  </div>
+</div>
+
+{% if pendentes %}
+<div class="cartao">
+  <h2>Sem média ({{ pendentes|length }})</h2>
+  <p class="suave">Falta nota em alguma avaliação. <a href="/notas/{{ composicao.id }}/turmas/{{ turma.id }}">Completar as notas</a>.</p>
+  <p>{% for l in pendentes %}<span class="chip">{{ l.nome }}</span>{% endfor %}</p>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <details>
+    <summary>Tabela com todas as médias</summary>
+    <div class="tabela"><table>
+      <tr><th>Estudante</th><th>Matrícula</th><th style="text-align:right">Média</th><th>Situação no bimestre</th></tr>
+      {% for l in linhas %}
+      <tr><td>{{ l.nome }}</td><td>{{ l.matricula }}</td><td style="text-align:right" class="num">{{ l.media|nota if l.media is not none else "—" }}</td>
+        <td>{% if l.media is none %}<span class="selo">Sem média</span>{% elif l.media < resumo.minima %}<span class="selo situacao-atencao"><span aria-hidden="true">▼ </span>Abaixo da média</span>{% else %}<span class="selo concluido"><span aria-hidden="true">✓ </span>Na média</span>{% endif %}</td></tr>
+      {% endfor %}
+    </table></div>
+    <h3>Faixas</h3>
+    <div class="tabela"><table>
+      <tr><th>Faixa de média</th><th style="text-align:right">Estudantes</th></tr>
+      {% for f in resumo.faixas %}<tr><td>{{ f.rotulo }}</td><td style="text-align:right">{{ f.quantidade }}</td></tr>{% endfor %}
+    </table></div>
+  </details>
+</div>
+{% include "_base_legal.html" %}
+{% endblock %}

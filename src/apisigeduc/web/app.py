@@ -48,6 +48,8 @@ templates = Jinja2Templates(directory=PASTA_WEB / "templates")
 templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else "—"
 templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA, BIMESTRES=BIMESTRES, CALCULO_NOMES=CALCULO_NOMES)
 templates.env.filters["num"] = lambda v: "" if v is None else f"{v:g}".replace(".", ",")
+# notas e médias sempre com 1 casa (8,0; 5,5), para alinhar e ler como nota
+templates.env.filters["nota"] = lambda v: "" if v is None else f"{v:.1f}".replace(".", ",")
 templates.env.filters["descrever_turma"] = descrever_turma
 
 
@@ -432,6 +434,7 @@ def criar_app(
     notas_web.registrar(
         app,
         SimpleNamespace(
+            config=config,
             sessoes=sessoes,
             repo=repo,
             pagina=pagina,

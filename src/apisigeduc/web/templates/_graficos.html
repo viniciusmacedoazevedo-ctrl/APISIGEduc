@@ -1,0 +1,87 @@
+{# Gráficos em HTML/CSS (sem biblioteca). Uma cor só (verde-quadro); a média mínima é
+   uma linha de referência rotulada; cada gráfico tem tabela equivalente. #}
+
+{% macro indicadores(r, titulo_media="Média da turma") %}
+<div class="indicadores">
+  <div class="indicador destaque">
+    <span class="rotulo">{{ titulo_media }}</span>
+    <span class="valor">{{ r.media|nota if r.media is not none else "—" }}</span>
+    <span class="suave">mediana {{ r.mediana|nota if r.mediana is not none else "—" }} · de {{ r.menor|nota if r.menor is not none else "—" }} a {{ r.maior|nota if r.maior is not none else "—" }}</span>
+  </div>
+  <div class="indicador">
+    <span class="rotulo">Com média igual ou acima de {{ r.minima|nota }}</span>
+    <span class="valor">{{ r.acima }}</span>
+    <span class="suave">{{ (r.pct_acima|round(0)|int ~ "% dos que têm média") if r.pct_acima is not none else "nenhuma média ainda" }}</span>
+  </div>
+  <div class="indicador {{ 'alerta-indicador' if r.abaixo }}">
+    <span class="rotulo">{% if r.abaixo %}<span aria-hidden="true">▼ </span>{% endif %}Abaixo de {{ r.minima|nota }}</span>
+    <span class="valor">{{ r.abaixo }}</span>
+    <span class="suave">indicados para estudos de recuperação</span>
+  </div>
+  <div class="indicador">
+    <span class="rotulo">Sem média</span>
+    <span class="valor">{{ r.pendentes }}</span>
+    <span class="suave">faltam notas de alguma avaliação</span>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro distribuicao(r) %}
+<figure class="grafico colunas" aria-label="Distribuição das médias por faixa">
+  <figcaption>Estudantes por faixa de média</figcaption>
+  <div class="area">
+    {% for f in r.faixas %}
+    {% if loop.index0 == 2 %}<div class="referencia-vertical"><span>média mínima {{ r.minima|nota }}</span></div>{% endif %}
+    <div class="coluna" title="{{ f.rotulo }}: {{ f.quantidade }} estudante(s)">
+      <span class="numero">{{ f.quantidade }}</span>
+      <span class="barra" style="height: {{ (f.quantidade / r.maior_faixa * 100) if r.maior_faixa else 0 }}%"></span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="eixo">
+    {% for f in r.faixas %}{% if loop.index0 == 2 %}<span class="espaco-referencia"></span>{% endif %}<span>{{ f.rotulo }}</span>{% endfor %}
+  </div>
+</figure>
+{% endmacro %}
+
+{% macro avaliacoes(lista, minima) %}
+<figure class="grafico barras" aria-label="Média de cada avaliação, de 0 a 10">
+  <figcaption>Média de cada avaliação (escala 0 a 10)</figcaption>
+  <div class="linhas-barras" style="--referencia: {{ minima * 10 }}%">
+    <span class="rotulo-referencia" style="left: calc(var(--col-rotulo) + (100% - var(--col-rotulo) - var(--col-valor)) * {{ minima / 10 }})">{{ minima|nota }}</span>
+    {% for a in lista %}
+    <div class="linha-barra" title="{{ a.nome }}: {{ a.media|nota if a.media is not none else 'sem notas' }} ({{ a.lancadas }} de {{ a.total }} notas)">
+      <span class="rotulo">{{ a.nome }}{% if a.nome != a.grupo %}<span class="suave"> · {{ a.grupo }}</span>{% endif %}</span>
+      <span class="trilho"><span class="barra" style="width: {{ (a.media or 0) * 10 }}%"></span><span class="ref"></span></span>
+      <span class="numero">{{ a.media|nota if a.media is not none else "—" }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</figure>
+{% endmacro %}
+
+{% macro situacao(codigo) %}
+{% if codigo == "recuperacao" %}<span class="selo situacao-recuperacao"><span aria-hidden="true">▼▼ </span>Recuperação</span>
+{% elif codigo == "atencao" %}<span class="selo situacao-atencao"><span aria-hidden="true">▼ </span>Atenção</span>
+{% elif codigo == "ok" %}<span class="selo concluido"><span aria-hidden="true">✓ </span>Na média</span>
+{% else %}<span class="selo">Sem notas</span>{% endif %}
+{% endmacro %}
+
+{% macro ranking(lista, minima, menor, mostrar_turma=False) %}
+{% if lista %}
+<ol class="ranking">
+  {% for p in lista %}
+  <li>
+    <span class="posicao">{{ loop.index }}º</span>
+    <span class="quem">{{ p.nome }}<span class="suave"> · {{ p.matricula }}{% if mostrar_turma %} · {{ p.turma }}{% endif %}</span></span>
+    <span class="nota-ranking">{{ p.media|nota }}</span>
+    {% if menor %}<span class="falta">faltam {{ p.falta|nota }}</span>{% endif %}
+  </li>
+  {% endfor %}
+</ol>
+{% elif menor %}
+<p class="suave">Nenhum estudante com média abaixo de {{ minima|nota }}.</p>
+{% else %}
+<p class="suave">Nenhuma média lançada ainda.</p>
+{% endif %}
+{% endmacro %}
