@@ -2,7 +2,7 @@
 {% import "_foto.html" as ft %}
 {% block titulo %}Chamada {{ turma.codigo }}{% endblock %}
 {% block conteudo %}
-<form method="post" action="/turmas/{{ turma.id }}/chamada" id="form-chamada">
+<form method="post" action="/turmas/{{ turma.id }}/chamada" id="form-chamada" data-offline="Chamada de {{ turma.codigo }} {{ turma.componente }}">
 <input type="hidden" name="csrf_token" value="{{ csrf }}">
 <div class="cartao">
   <p class="suave" style="margin:0 0 4px"><a href="/turmas/{{ turma.id }}">{{ turma.codigo }} {{ turma.componente }}</a> · <a href="/turmas/{{ turma.id }}/aulas">aulas e frequência</a></p>
@@ -52,8 +52,8 @@
 </div>
 
 <div class="cartao">
-  <label for="conteudo" style="margin-top:0">Conteúdo da aula</label>
-  <textarea id="conteudo" name="conteudo" rows="3" placeholder="Ex.: Revolução Industrial: causas e consequências…">{{ aula.conteudo if aula else "" }}</textarea>
+  <label for="conteudo-aula" style="margin-top:0">Conteúdo da aula</label>
+  <textarea id="conteudo-aula" name="conteudo" rows="3" placeholder="Ex.: Revolução Industrial: causas e consequências…">{{ aula.conteudo if aula else "" }}</textarea>
   <label for="observacoes">Observações da turma</label>
   <textarea id="observacoes" name="observacoes" rows="3" placeholder="Ex.: turma agitada após o intervalo…">{{ aula.observacoes if aula else "" }}</textarea>
   <p class="suave">Observações sobre um estudante específico ficam na ficha dele (toque no nome em Turmas).</p>
@@ -69,6 +69,17 @@
     contador.textContent = `${caixas.length - faltas} presentes, ${faltas} falta(s)`;
   };
   caixas.forEach((c) => c.addEventListener('change', atualizar));
+  // aberta sem internet a partir do aparelho: a tela guardada pode ser de outro dia
+  const pedida = new URLSearchParams(location.search).get('data') || new Date().toLocaleDateString('sv');
+  const campoData = document.getElementById('data');
+  if (campoData.value !== pedida) {
+    campoData.value = pedida;
+    caixas.forEach((c) => { c.checked = false; });
+    document.getElementById('conteudo-aula').value = '';
+    document.getElementById('observacoes').value = '';
+    document.querySelectorAll('.alerta').forEach((a) => a.remove());
+  }
+  document.getElementById('form-chamada').addEventListener('guardado-offline', () => atualizar());
   if (contador) atualizar();
 })();
 </script>

@@ -13,7 +13,7 @@
   </details>
 </div>
 
-<form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}" class="cartao" id="grade">
+<form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}" class="cartao" id="grade" data-offline="Notas de {{ turma.codigo }} ({{ composicao.nome }})">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   {% if linhas %}
   {# celular: modo chamada, uma avaliação por vez, aluno por aluno #}
@@ -206,6 +206,7 @@
   let alterado = false;
   grade.addEventListener('input', () => { alterado = true; });
   grade.addEventListener('submit', () => { alterado = false; });
+  grade.addEventListener('guardado-offline', () => { alterado = false; });
   window.addEventListener('beforeunload', (e) => { if (alterado) { e.preventDefault(); e.returnValue = ''; } });
 })();
 </script>

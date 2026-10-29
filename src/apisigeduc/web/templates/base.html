@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
+<body{% if usuario %} data-usuario="{{ usuario.id }}"{% endif %}>
 <a class="pular" href="#conteudo">Pular para o conteúdo</a>
 {% set caminho = request.url.path %}
 {% macro atual(prefixo) %}{% if (prefixo == "/" and caminho in ["/", "/envios"]) or (prefixo != "/" and caminho.startswith(prefixo)) %}aria-current="page"{% endif %}{% endmacro %}
@@ -48,6 +48,7 @@
   <div aria-live="polite">{% for tipo, texto in avisos %}<div class="aviso {{ tipo }}" role="{{ 'alert' if tipo == 'erro' else 'status' }}">{{ texto }}</div>{% endfor %}</div>
   {% block conteudo %}{% endblock %}
 </main>
+{% if usuario %}<script src="/static/offline.js" defer></script>{% endif %}
 <script>
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   // confirmação de ações que apagam dados (texto em data-confirmar, sem montar JS com o nome)

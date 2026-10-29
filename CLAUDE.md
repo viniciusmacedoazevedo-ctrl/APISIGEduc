@@ -30,6 +30,7 @@ no `README.md`.
 | Desempenho: indicadores, distribuição, rankings, comparação de turmas, ano letivo | pronta e testada |
 | Diário: chamada, aulas, frequência, ficha do aluno, anotações privadas (importante = sinal), fotos | pronta e testada |
 | Sincronização: professor libera, carga manual (admin) ou agendada, arquivo padronizado ou robô, sem reenvio | pronta e testada |
+| App sem internet: telas de chamada/notas e fotos no aparelho, fila de pendentes (IndexedDB) reenviada ao voltar, limpeza ao sair | pronta e testada (teste automático com a rede cortada) |
 | **Digitar as médias na tela de notas do SIGEduc** | **pendente**: seletores "A MAPEAR" em `seletores.py`, rotina em `tarefas/notas.py` |
 | Lançamento de frequência no SIGEduc | pendente, mesma situação |
 
@@ -82,5 +83,7 @@ no `README.md`.
   das telas reais (inclusive respondendo devagar e abrindo em nova aba).
 - Bancos já existentes não são alterados por `create_all`: mudanças de tabela precisam de
   ajuste em `banco.migrar()`.
+- `tests/test_offline.py` abre um navegador e corta a rede (`context.set_offline`): precisa de
+  Chromium (`PLAYWRIGHT_CHROMIUM_EXECUTABLE` quando não é o padrão), senão é pulado.
 - `scripts/*.ps1` são para Windows PowerShell 5.1: UTF-8 com BOM, CRLF, e verificar
   `$LASTEXITCODE` (o `git`/`pip` escrevem no stderr).

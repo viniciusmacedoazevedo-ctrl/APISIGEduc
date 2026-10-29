@@ -115,8 +115,12 @@ No celular, a tela de notas usa o **modo chamada**: escolha a avaliação no top
 lista digitando a nota de cada aluno; o botão "próximo" do teclado pula para o aluno
 seguinte, e a média aparece ao lado. O ponto amarelo marca quem ainda está sem média.
 
-Notas e dados de alunos **não ficam guardados no aparelho**: sem conexão aparece uma página
-avisando. Para a instalação completa (e o funcionamento do service worker) fora do próprio
+**Sem internet:** as telas de chamada e de notas que você já abriu com internet abrem do
+aparelho (com a lista da turma e as fotos). O que for salvo sem conexão fica numa fila no
+aparelho, com o aviso "lançamento(s) guardado(s) no aparelho"; quando a internet volta, o app
+envia sozinho e apaga a fila. Cada pendente só é enviado com a sessão de quem o fez. **Sair
+da conta apaga do aparelho** as telas, as fotos e os pendentes (o app avisa se ainda houver
+algo não enviado). Para a instalação completa (e o funcionamento do service worker) fora do próprio
 computador, o sistema precisa estar em **HTTPS** (ex.: atrás de um proxy com certificado);
 pelo IP da rede local (`http://192.168.x.x`), o "Adicionar à tela inicial" cria só um atalho.
 

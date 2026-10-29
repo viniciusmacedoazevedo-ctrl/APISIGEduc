@@ -236,3 +236,10 @@ table td.abaixo { background: var(--giz-claro); color: var(--giz-texto); font-we
 .sinal-importante span { display: inline-flex; width: 16px; height: 16px; border-radius: 50%; background: var(--giz); color: var(--tinta); align-items: center; justify-content: center; font-size: 11px; }
 .aluno-com-foto { display: flex; align-items: center; gap: 10px; }
 .foto-aluno.grande img { width: 72px; height: 72px; }
+
+/* --- sem internet --- */
+.faixa-offline { position: fixed; left: 12px; right: 12px; bottom: calc(var(--barra-inferior) + env(safe-area-inset-bottom) + 12px); z-index: 30;
+  display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; max-width: 720px; margin: 0 auto;
+  background: var(--tinta); color: #fff; padding: 12px 14px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+.faixa-offline[hidden] { display: none; }
+.faixa-offline .botao { background: var(--giz); border-color: var(--giz); color: var(--tinta); }

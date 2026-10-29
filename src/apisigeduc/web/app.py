@@ -195,7 +195,10 @@ def criar_app(
     def sair(request: Request, csrf_token: str = Form("")):
         verificar_csrf(request, csrf_token)
         request.session.clear()
-        return voltar("/login")
+        resposta = voltar("/login")
+        # apaga do aparelho as telas guardadas, as fotos e os pendentes (o JS já avisou)
+        resposta.headers["Clear-Site-Data"] = '"cache", "storage"'
+        return resposta
 
     # --- painel e envios ----------------------------------------------------
     @app.get("/", response_class=HTMLResponse)

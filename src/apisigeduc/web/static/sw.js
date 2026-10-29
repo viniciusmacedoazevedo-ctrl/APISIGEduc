@@ -1,14 +1,19 @@
 // Service worker do APISIGEduc.
-// Guarda só os arquivos fixos do app (estilo, ícones, página "sem conexão").
-// As páginas com dados de alunos e notas NUNCA são guardadas no aparelho:
-// vêm sempre do servidor, e sem conexão aparece a página "sem conexão".
-const VERSAO = "apisigeduc-v4";
+// Guarda os arquivos fixos do app e, para lançar sem internet, as telas de chamada e
+// de notas já abertas (lista da turma) e as fotos dos estudantes. Os lançamentos feitos
+// sem internet ficam em offline.js até serem enviados. Sair da conta apaga tudo.
+const VERSAO = "apisigeduc-v6";
+const PAGINAS = "apisigeduc-paginas";
+// telas que podem abrir sem internet: chamada e grade de notas de uma turma
+const OFFLINE = [/^\/turmas\/\d+\/chamada$/, /^\/notas\/\d+\/turmas\/\d+$/];
+const FOTO = /^\/alunos\/[^/]+\/foto$/;
 const FIXOS = [
   "/static/app.css",
   "/static/offline.html",
   "/static/icones/icone.svg",
   "/static/icones/icone-192.png",
   "/static/manifest.webmanifest",
+  "/static/offline.js",
 ];
 
 self.addEventListener("install", (evento) => {
@@ -18,7 +23,7 @@ self.addEventListener("install", (evento) => {
 self.addEventListener("activate", (evento) => {
   evento.waitUntil(
     caches.keys()
-      .then((nomes) => Promise.all(nomes.filter((n) => n !== VERSAO).map((n) => caches.delete(n))))
+      .then((nomes) => Promise.all(nomes.filter((n) => n !== VERSAO && n !== PAGINAS).map((n) => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });
@@ -34,13 +39,39 @@ self.addEventListener("fetch", (evento) => {
     evento.respondWith(
       caches.open(VERSAO).then(async (cache) => {
         const guardado = await cache.match(pedido);
-        const rede = fetch(pedido).then((r) => { if (r.ok) cache.put(pedido, r.clone()); return r; }).catch(() => guardado);
+        const rede = fetch(pedido).then((r) => { if (r.ok) { const copia = r.clone(); cache.put(pedido, copia); } return r; }).catch(() => guardado);
         return guardado || rede;
       })
     );
     return;
   }
+  if (FOTO.test(url.pathname)) {
+    // foto: do aparelho se já guardada; senão da rede, guardando
+    evento.respondWith(
+      caches.open(PAGINAS).then(async (cache) => {
+        const guardado = await cache.match(pedido);
+        if (guardado) return guardado;
+        const r = await fetch(pedido);
+        if (r.ok) await cache.put(pedido, r.clone());
+        return r;
+      })
+    );
+    return;
+  }
   if (pedido.mode === "navigate") {
-    evento.respondWith(fetch(pedido).catch(() => caches.match("/static/offline.html")));
+    const podeGuardar = OFFLINE.some((p) => p.test(url.pathname));
+    evento.respondWith(
+      fetch(pedido)
+        .then((r) => {
+          // só telas de lançamento, e nunca o redirecionamento para o login; a cópia
+          // é feita já, antes de a página consumir a resposta
+          if (podeGuardar && r.ok && !r.redirected) {
+            const copia = r.clone();
+            evento.waitUntil(caches.open(PAGINAS).then((c) => c.put(url.pathname, copia)));
+          }
+          return r;
+        })
+        .catch(async () => (podeGuardar && (await caches.match(url.pathname))) || caches.match("/static/offline.html"))
+    );
   }
 });
