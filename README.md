@@ -22,7 +22,8 @@ pessoa faria.
 | Importar turmas e estudantes do Portal do Professor | pronta e funcionando no SIGEduc real |
 | Composição de notas do bimestre (itens, nota para todos, média) e envio das médias | pronta e testada |
 | Login no SIGEduc | funcionando; a verificação humana é resolvida por uma pessoa |
-| Lançamento de notas e frequência | estrutura pronta; seletores das telas **a mapear** em `src/apisigeduc/seletores.py` |
+| Tela da turma no celular: abas Alunos (busca e A–Z), Conteúdo (aulas por bimestre) e Lançar notas (lista ou aluno por aluno) | pronta e testada |
+| Acesso ao SIGEduc | **só consulta** (`APISIGEDUC_SIGEDUC_SOMENTE_LEITURA=true`): o robô não grava nem apaga nada no SIGEduc |
 
 ## Como funciona
 
@@ -155,6 +156,18 @@ Em cada turma dá para baixar a lista de estudantes e **modelos de planilha de n
 frequência** já preenchidos com matrícula, nome, turma e componente.
 
 Pelo terminal: `apisigeduc turmas --usuario seu@email.com`.
+
+**Tela da turma** (pensada para o celular, abre também sem internet): resumo (alunos, aulas
+dadas, bimestre, quantos estão abaixo de 75%), botão **Fazer a chamada** e três abas:
+
+- **Alunos:** foto, nome, matrícula, frequência e sinal de observação importante; busca pelo
+  nome ou matrícula e letras A–Z na lateral para pular.
+- **Conteúdo:** as aulas do bimestre escolhido, com data por extenso, aulas, faltas e o
+  conteúdo; toque numa aula para corrigir. Os bimestres vêm de `APISIGEDUC_BIMESTRES`
+  (início de cada um, mês-dia; padrão `02-01,05-04,08-01,10-13`, ajuste ao calendário da rede).
+- **Lançar notas:** as composições aplicadas à turma, com quantos já têm média. **Aluno por
+  aluno** mostra um estudante por vez, com foto e todas as avaliações (Enter passa para a
+  próxima e, no fim, para o próximo aluno); **Lista da turma** é a grade de sempre.
 
 ### Composição de notas
 
@@ -369,6 +382,12 @@ Os testes usam SQLite. Para rodá-los também no PostgreSQL, crie um banco vazio
 testes e defina `APISIGEDUC_TESTE_BANCO_URL` (ele é apagado a cada teste).
 
 ## Cuidados
+
+- **O SIGEduc real é só consultado.** Com `APISIGEDUC_SIGEDUC_SOMENTE_LEITURA=true` (padrão),
+  a fila recusa planilhas de lançamento, a carga pelo robô fica escondida e a linha de comando
+  `notas`/`frequencia` não abre o SIGEduc. As médias e a frequência vão à SEEC pelo arquivo.
+- **O repositório é público:** não envie telas do SIGEduc nem prints com nomes, matrículas,
+  notas ou faltas de alunos (LGPD; são menores). A pasta `screenshots` não vai para o GitHub.
 
 - Nunca versione o arquivo `.env` (ele já está no `.gitignore`).
 - Use apenas com credenciais próprias e para turmas sob sua responsabilidade.

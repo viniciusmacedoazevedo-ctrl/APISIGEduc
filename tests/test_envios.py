@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 
 from apisigeduc import envios
@@ -29,7 +30,17 @@ def _usuario(repo):
     return u
 
 
+def test_por_padrao_a_fila_nao_grava_no_sigeduc(repo, sessoes, config):
+    u = _usuario(repo)
+    chamado = []
+    envio_id = envios.criar(sessoes, u.id, "notas", "notas.csv", NOTAS, 3)
+    assert envios.processar_proximo(sessoes, repo, config, ClienteFalso, {"notas": chamado.append})
+    envio = envios.obter(sessoes, envio_id)
+    assert envio.status == "falhou" and "só consulta o SIGEduc" in envio.mensagem and chamado == []
+
+
 def test_fila_processa_com_a_credencial_do_dono(repo, sessoes, config):
+    config = replace(config, sigeduc_somente_leitura=False)
     u = _usuario(repo)
     recebidos = []
 
@@ -49,6 +60,7 @@ def test_fila_processa_com_a_credencial_do_dono(repo, sessoes, config):
 
 
 def test_falhas_e_erros_ficam_registrados(repo, sessoes, config):
+    config = replace(config, sigeduc_somente_leitura=False)
     u = _usuario(repo)
 
     def lancar(cliente, registros):

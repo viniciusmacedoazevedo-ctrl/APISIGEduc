@@ -58,7 +58,7 @@ h2 { font-size: 18px; line-height: 1.3; margin: 0 0 12px; }
 
 /* --- formulários --- */
 label { display: block; font-weight: 700; margin: 14px 0 6px; }
-input[type=text], input[type=email], input[type=password], select, input[type=file] {
+input[type=text], input[type=email], input[type=password], input[type=search], select, input[type=file] {
   width: 100%; min-height: var(--toque); padding: 9px 12px; border: 1.5px solid var(--pauta); border-radius: 8px;
   font: inherit; color: var(--tinta); background: #fff; }
 input:focus, select:focus { border-color: var(--quadro); outline: none; box-shadow: 0 0 0 3px var(--quadro-claro); }
@@ -243,3 +243,93 @@ table td.abaixo { background: var(--giz-claro); color: var(--giz-texto); font-we
   background: var(--tinta); color: #fff; padding: 12px 14px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
 .faixa-offline[hidden] { display: none; }
 .faixa-offline .botao { background: var(--giz); border-color: var(--giz); color: var(--tinta); }
+
+/* --- tela da turma: resumo, abas Alunos / Conteúdo / Lançar notas --- */
+.trilha { margin: 0 0 4px; }
+.resumo-turma { display: grid; grid-template-columns: repeat(4, 1fr); margin: 16px 0; border: 1px solid var(--pauta); border-radius: 8px; }
+.resumo-turma div { padding: 8px 12px; border-left: 1px solid var(--pauta); }
+.resumo-turma div:first-child { border-left: 0; }
+.resumo-turma dt { font-size: 13px; color: var(--grafite); font-weight: 700; }
+.resumo-turma dd { margin: 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.resumo-turma .pendencia { background: var(--giz-claro); }
+.resumo-turma .pendencia dt, .resumo-turma .pendencia dd { color: var(--giz-texto); }
+a.botao.largo { width: 100%; min-height: 52px; font-size: 18px; }
+.abas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 12px; }
+.abas [role="tab"] { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 6px 8px; text-align: center;
+  border: 1.5px solid var(--pauta); border-radius: 8px; background: var(--cartao); color: var(--grafite); text-decoration: none; font-weight: 700; }
+.abas [role="tab"][aria-selected="true"] { border-color: var(--quadro); background: var(--quadro); color: #fff; }
+.painel-aba[hidden] { display: none; }
+input.busca { margin-bottom: 8px; }
+.lista-com-indice { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: start; }
+.lista-alunos, .lista-aulas, .lista-composicoes { list-style: none; margin: 0; padding: 0; }
+.lista-alunos li { border-bottom: 1px solid var(--pauta); scroll-margin-top: 12px; }
+.linha-aluno { display: flex; align-items: center; gap: 12px; padding: 10px 4px; min-height: 64px; color: inherit; text-decoration: none; }
+.linha-aluno:hover .nome { text-decoration: underline; }
+.linha-aluno .dados { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.linha-aluno .nome { font-weight: 700; overflow-wrap: anywhere; }
+.linha-aluno .freq { flex: none; font-weight: 700; }
+.linha-aluno .freq.abaixo { color: var(--giz-texto); background: var(--giz-claro); border-radius: 99px; padding: 2px 8px; }
+.indice-letras { position: sticky; top: 8px; display: flex; flex-direction: column; align-items: center; font-size: 12px; line-height: 1;
+  background: #F0F3F1; border-radius: 99px; padding: 6px 2px; }
+.indice-letras a, .indice-letras span { display: block; width: 26px; padding: 3px 0; text-align: center; }
+.indice-letras a { color: var(--quadro); font-weight: 700; text-decoration: none; }
+.indice-letras span { color: #A9B4AD; }
+.bimestres { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; margin-bottom: 8px; }
+.bimestres button { flex: none; min-height: 40px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--pauta); background: #fff;
+  color: var(--tinta); font: inherit; cursor: pointer; }
+.bimestres button[aria-pressed="true"] { background: var(--quadro); border-color: var(--quadro); color: #fff; font-weight: 700; }
+.aulas-bimestre[hidden] { display: none; }
+.titulo-bimestre { font-size: 16px; margin: 8px 0; }
+.lista-aulas li + li { margin-top: 8px; }
+.cartao-aula { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--pauta); border-radius: 8px;
+  color: inherit; text-decoration: none; min-height: 64px; }
+.cartao-aula:hover { border-color: var(--quadro); }
+.cartao-aula .dados { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cartao-aula .data { font-weight: 700; }
+.resumo-conteudo { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.resumo-conteudo.vazio { color: var(--giz-texto); }
+.cartao-aula .lapis { flex: none; width: 24px; height: 24px; color: var(--quadro); margin-top: 2px; }
+.selo-bimestre { flex: none; display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--quadro-claro); color: var(--quadro-escuro);
+  font-size: 13px; font-weight: 700; white-space: nowrap; }
+.cartao-composicao { border: 1px solid var(--pauta); border-radius: 8px; padding: 12px; }
+.cartao-composicao + .cartao-composicao { margin-top: 10px; }
+.cabecalho-composicao { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.progresso-notas { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; }
+.pendente-texto { color: var(--giz-texto); font-weight: 700; }
+.arquivos-turma { margin-top: 16px; }
+.arquivos-turma summary { cursor: pointer; color: var(--quadro); font-weight: 700; min-height: var(--toque); display: flex; align-items: center; }
+@media (max-width: 720px) {
+  .cabeca-turma h1 { font-size: 21px; margin-bottom: 2px; }
+  .cabeca-turma .escola { display: none; }
+  .resumo-turma { margin: 12px 0; }
+  .resumo-turma div { padding: 6px 8px; }
+  .resumo-turma dt { font-size: 12px; line-height: 1.2; }
+  .resumo-turma dd { font-size: 18px; }
+  a.botao.largo { min-height: 48px; }
+  .abas { position: sticky; top: 0; z-index: 4; background: var(--papel); padding: 8px 0; margin: -12px 0 0; }
+  .abas [role="tab"] { font-size: 15px; }
+}
+
+/* --- lançar notas: aluno por aluno --- */
+.modo-lancamento { display: inline-flex; border: 1.5px solid var(--pauta); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+.modo-lancamento button { min-height: 40px; padding: 6px 14px; border: 0; background: #fff; color: var(--tinta); font: inherit; cursor: pointer; }
+.modo-lancamento button + button { border-left: 1.5px solid var(--pauta); }
+.modo-lancamento button[aria-pressed="true"] { background: var(--quadro); color: #fff; font-weight: 700; }
+.passo-aluno { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.passo-aluno[hidden] { display: none; }
+.passo-aluno .botao:disabled { opacity: .4; cursor: default; }
+#grade.modo-aluno .chamada .avaliacoes, #grade.modo-aluno .chamada .todos { display: none; }
+#grade.modo-aluno .chamada { padding: 0; border: 0; position: static; }
+#grade.modo-aluno .grade-notas thead { display: none; }
+#grade.modo-aluno .grade-notas tbody tr { display: none; }
+#grade.modo-aluno .grade-notas tbody tr.atual { display: block; border: 1px solid var(--pauta); border-radius: 10px; padding: 8px 14px; }
+#grade.modo-aluno .grade-notas tr.atual td { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0;
+  border-bottom: 1px solid var(--pauta); padding: 10px 0; text-align: left !important; }
+#grade.modo-aluno .grade-notas tr.atual td:last-child { border-bottom: 0; }
+#grade.modo-aluno .grade-notas tr.atual td.oculta-movel { display: flex; }
+#grade.modo-aluno .grade-notas tr.atual td[data-rotulo]::before { content: attr(data-rotulo); font-weight: 700; font-size: 16px; }
+#grade.modo-aluno .grade-notas tr.atual td.aluno { font-size: 18px; justify-content: flex-start; }
+#grade.modo-aluno .grade-notas tr.atual td.aluno::before { display: none; }
+#grade.modo-aluno .grade-notas tr.atual .foto-aluno { width: 72px; height: 72px; font-size: 28px; }
+#grade.modo-aluno .grade-notas tr.atual input.nota { width: 96px; min-height: 52px; font-size: 22px; }
+#grade.modo-aluno .grade-notas tr.atual td.media { font-size: 22px; }

@@ -32,19 +32,29 @@ no `README.md`.
 | Diário: chamada, aulas, frequência, ficha do aluno, anotações privadas (importante = sinal), fotos | pronta e testada |
 | Sincronização: professor libera, carga manual (admin) ou agendada, arquivo padronizado ou robô, sem reenvio | pronta e testada |
 | App sem internet: telas de chamada/notas e fotos no aparelho, fila de pendentes (IndexedDB) reenviada ao voltar, limpeza ao sair | pronta e testada (teste automático com a rede cortada) |
-| **Digitar as médias na tela de notas do SIGEduc** | **pendente**: seletores "A MAPEAR" em `seletores.py`, rotina em `tarefas/notas.py` |
-| Lançamento de frequência no SIGEduc | pendente, mesma situação |
+| Tela da turma no celular (abas Alunos / Conteúdo / Lançar notas, modo aluno por aluno), no modelo do app oficial do SIGEduc | pronta e testada |
+| SIGEduc só leitura (`APISIGEDUC_SIGEDUC_SOMENTE_LEITURA`, padrão ligado) | pronta: fila, carga pelo robô e CLI de lançamento recusam |
+| Telas do SIGEduc de lançar notas, frequência e conteúdo | **capturadas** (cópia local fora do repositório; estrutura descrita abaixo) |
 
 ## Próximos passos
 
-1. **Mapear a tela "Lançar Notas" do SIGEduc** (menu da Escola Digital da turma, ou menu
-   "Notas" do Portal do Professor). Pedir ao usuário prints da tela com a lista de alunos e
-   os campos do bimestre, o botão salvar e a mensagem de confirmação. Melhor ainda: os
-   `.png` e `.html` salvos por `apisigeduc capturar --usuario EMAIL` (Enter no terminal
-   salva a tela aberta no navegador). Depois reescrever
-   `tarefas/notas.py` no estilo de `tarefas/turmas.py` (esperar o conteúdo de cada tela,
-   localizar pela matrícula, testar contra uma cópia falsa da tela).
-2. Mesmo processo para frequência.
+1. **Consultar e trazer do SIGEduc (só leitura)** as notas já lançadas, a frequência e o
+   conteúdo das aulas, para comparar com o APISIGEduc. Estrutura das telas (capturadas em
+   29/10/2026):
+   - Lançar notas (`/sigeduc/diario_classe/lancar_notas/form_estudantes_notas.jsf`): tabela
+     `formulario:notaEstudante`, linha N com `formulario:notaEstudante:N:nota1..nota4`
+     (valor com ponto, "5.0"), `idMatriculaComponente` oculto, faltas e %freq. **Sem matrícula
+     na tela**: casar pelo nome; nomes riscados = saíram da turma. Regra do RN na própria
+     tela: MA=(n1+n2+n3+n4)/4; exame final se 2,5 ≤ MA < 6; MF=(MA×2+EF)/3; aprovado MF ≥ 5.
+   - Frequência (`/sigeduc/diario_classe/frequencia_aluno/form.jsf`): calendário por mês
+     (links com dia/mes/ano), lista `formFrequencia:alunos:N` com matrícula, nome e select
+     `frequencia` (-1 Selecione, 0 Presente, 1 Falta, 2 Faltas). Falta pode ser parcial (1 de 2
+     aulas): a chamada do APISIGEduc hoje é presente/ausente no dia.
+   - Conteúdo (Escola Digital > Turmas > Aulas, `/sigeduc/ava/index.jsf`): abas por bimestre,
+     botões com as datas, editor TinyMCE `form:conteudoTopicoEditor`.
+   Escrever as leituras no estilo de `tarefas/turmas.py`, testar contra cópias falsas.
+2. Ler as datas de cada bimestre do SIGEduc (abas da tela de conteúdo) em vez do padrão de
+   `APISIGEDUC_BIMESTRES`.
 3. Hospedagem com HTTPS para os professores instalarem o app no celular (PWA).
 4. Ideias registradas, não iniciadas: gerar provas com IA (Taxonomia de Bloom) ligadas às
    avaliações das composições; correção assistida por IA só como sugestão confirmada pelo
@@ -52,6 +62,10 @@ no `README.md`.
 
 ## Decisões já tomadas (não refazer)
 
+- **SIGEduc real: só consultar e trazer, nunca gravar nem apagar** (decisão do usuário,
+  29/10/2026). `APISIGEDUC_SIGEDUC_SOMENTE_LEITURA=true` é o padrão; não desligar no real.
+- **Repositório público:** nunca commitar telas do SIGEduc nem prints com dados de alunos;
+  capturas ficam em `screenshots/` (ignorada pelo Git).
 - **Não contornar a verificação humana do login** (nem mover o mouse/clicar
   automaticamente). Caminhos legítimos se voltar ao tema: reaproveitar a sessão aberta,
   pedir acesso oficial à SEEC.

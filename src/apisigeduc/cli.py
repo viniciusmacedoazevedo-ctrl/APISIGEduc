@@ -208,6 +208,12 @@ def cmd_lancar(args) -> int:
         log.error("Informe o e-mail do usuário com --usuario EMAIL.")
         return 1
 
+    config, _, _ = _contexto()
+    if config.sigeduc_somente_leitura:
+        from .config import SOMENTE_LEITURA
+
+        log.error(SOMENTE_LEITURA)
+        return 1
     with _cliente(args.usuario) as cliente:
         cliente.login()
         relatorio = _executores()[args.comando](cliente, resultado.registros)

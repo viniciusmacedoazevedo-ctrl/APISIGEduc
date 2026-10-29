@@ -28,13 +28,20 @@
       <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="modo" value="arquivo">
       <button class="botao" {{ "disabled" if not (total_medias or total_frequencias) }}>Gerar arquivo para a SEEC</button>
     </form>
+    {% if not somente_leitura %}
     <form method="post" action="/admin/sincronizacao/carga" style="margin:0" data-confirmar="Colocar as médias pendentes na fila do robô para lançar no SIGEduc?">
       <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="modo" value="sigeduc">
       <button class="botao secundario" {{ "disabled" if not total_medias }}>Enviar médias pelo robô</button>
     </form>
+    {% endif %}
   </div>
+  {% if somente_leitura %}
+  <p class="suave">O APISIGEduc só consulta o SIGEduc (turmas, estudantes e fotos): o robô não grava nem apaga nada lá.
+    As médias e a frequência vão à SEEC pelo arquivo.</p>
+  {% else %}
   <p class="suave">O robô lança só as médias e precisa que alguém resolva a verificação do login do SIGEduc; a frequência vai pelo arquivo.
     O lançamento pelo robô ainda depende do mapeamento da tela de notas do SIGEduc.</p>
+  {% endif %}
 </div>
 
 <div class="cartao">

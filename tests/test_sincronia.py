@@ -64,7 +64,9 @@ def test_so_vai_o_liberado_e_nada_se_repete(sessoes, cenario):
 def test_robo_enfileira_medias_e_so_conta_quando_concluir(sessoes, cenario):
     prof, turma, cid, _ = cenario
     comp.liberar(sessoes, cid, turma.id)
-    entrega = sincronia.executar(sessoes, "sigeduc", prof.id)
+    with pytest.raises(ValueError, match="só consulta o SIGEduc"):
+        sincronia.executar(sessoes, "sigeduc", prof.id)  # padrão: nunca grava no SIGEduc
+    entrega = sincronia.executar(sessoes, "sigeduc", prof.id, somente_leitura=False)
     [envio] = envios.listar(sessoes)
     assert envio.tipo == "notas" and envio.total == 2 and entrega.qtd_medias == 2
     assert len(sincronia.pendentes(sessoes)[0]) == 2  # ainda na fila: continua pendente

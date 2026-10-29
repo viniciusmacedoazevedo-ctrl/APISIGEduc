@@ -2,38 +2,195 @@
 {% import "_foto.html" as ft %}
 {% block titulo %}{{ turma.codigo }}{% endblock %}
 {% block conteudo %}
-<div class="cartao">
-  <h1>{{ turma.codigo }} · {{ turma.componente }}</h1>
-  <p class="suave">{{ turma.codigo | descrever_turma }}<br>{{ turma.escola }} · {{ turma.etapa }} · {{ turma.ano_serie }}<br>
-    Atualizada em {{ turma.sincronizado_em | data }}</p>
-  <div class="botoes">
-    <a class="botao" href="/turmas/{{ turma.id }}/chamada">Fazer a chamada</a>
-    <a class="botao secundario" href="/turmas/{{ turma.id }}/aulas">Aulas e frequência</a>
-  </div>
-  <div class="botoes">
-    <a class="botao secundario" href="/turmas/{{ turma.id }}/estudantes.csv">Baixar lista de estudantes</a>
-    <a class="botao secundario" href="/turmas/{{ turma.id }}/modelo-notas.csv">Baixar modelo de notas</a>
-    <a class="botao secundario" href="/turmas/{{ turma.id }}/modelo-frequencia.csv">Baixar modelo de frequência</a>
-  </div>
-  <p>Notas: {% for c in composicoes %}<a class="chip" href="/notas/{{ c.id }}/turmas/{{ turma.id }}">{{ c.nome }}</a>{% else %}<span class="suave">nenhuma composição aplicada.</span>{% endfor %}
-     · <a href="/notas">Composições de notas</a> · <a href="/turmas/{{ turma.id }}/desempenho">Acompanhamento do ano letivo</a></p>
-  <p class="suave">Os modelos já vêm com matrícula, turma e componente. Preencha bimestre e nota (ou data
-    e presença) e envie em <a href="/">Envios</a>.</p>
+<div class="cartao cabeca-turma">
+  <p class="suave trilha"><a href="/turmas">Turmas</a> <span aria-hidden="true">›</span> {{ turma.ano_serie or (turma.codigo | descrever_turma) }}</p>
+  <h1>{{ turma.componente }} · {{ turma.codigo }}</h1>
+  <p class="suave" style="margin:0">{{ turma.codigo | descrever_turma }}<span class="escola"> · {{ turma.escola }}</span></p>
+  <dl class="resumo-turma">
+    <div><dt>Alunos</dt><dd>{{ estudantes|length }}</dd></div>
+    <div><dt>Aulas dadas</dt><dd>{{ aulas_dadas }}</dd></div>
+    <div><dt>Bimestre</dt><dd>{{ bimestre_atual }}º</dd></div>
+    <div class="{{ 'pendencia' if abaixo }}"><dt>Abaixo de 75%</dt><dd>{% if abaixo %}<span aria-hidden="true">▼ </span>{% endif %}{{ abaixo }}</dd></div>
+  </dl>
+  <a class="botao largo" href="/turmas/{{ turma.id }}/chamada?data={{ hoje.isoformat() }}">Fazer a chamada</a>
 </div>
-<div class="cartao">
-  <h2>Estudantes ({{ estudantes|length }}{% if turma.qtd_estudantes is not none %} · o portal informa {{ turma.qtd_estudantes }}{% endif %})</h2>
+
+<div class="abas" role="tablist" aria-label="Turma {{ turma.codigo }}">
+  <a href="#alunos" role="tab" id="aba-alunos" aria-controls="alunos" aria-selected="true">Alunos</a>
+  <a href="#aulas" role="tab" id="aba-aulas" aria-controls="aulas" aria-selected="false">Conteúdo</a>
+  <a href="#notas" role="tab" id="aba-notas" aria-controls="notas" aria-selected="false">Lançar notas</a>
+</div>
+
+{# --- alunos ------------------------------------------------------------------- #}
+<section class="cartao painel-aba" id="alunos" role="tabpanel" aria-labelledby="aba-alunos">
+  <h2 class="sr">Alunos</h2>
   {% if estudantes %}
-  <div class="tabela"><table>
-    <tr><th>#</th><th>Nome</th><th>Matrícula</th><th style="text-align:right">Frequência</th></tr>
-    {% for e in estudantes %}{% set f = frequencia.get(e.matricula) %}
-    <tr><td class="suave">{{ loop.index }}</td>
-      <td><span class="aluno-com-foto">{{ ft.foto(e.matricula, e.nome, e.matricula in com_foto) }}<span><a href="/alunos/{{ e.matricula }}">{{ e.nome }}</a>{% if marcados.get(e.matricula) %} <span class="sinal-importante"><span aria-hidden="true">!</span> importante</span>{% endif %}</span></span></td>
-      <td>{{ e.matricula }}</td>
-      <td style="text-align:right" class="num {{ 'abaixo' if f and f.abaixo_do_minimo }}">{{ (f.percentual|nota ~ "%") if f and f.percentual is not none else "—" }}</td></tr>{% endfor %}
-  </table></div>
-  {% else %}
-  <p class="suave">Nenhum estudante importado para esta turma.</p>
+  <label class="sr" for="busca-aluno">Buscar aluno</label>
+  <input type="search" id="busca-aluno" class="busca" placeholder="Buscar pelo nome ou matrícula" autocomplete="off">
+  <div class="lista-com-indice">
+    <ul class="lista-alunos" id="lista-alunos">
+      {% for e in estudantes %}{% set f = frequencia.get(e.matricula) %}
+      <li data-busca="{{ (e.nome ~ ' ' ~ e.matricula)|lower }}"{% if e.matricula in ancoras %} id="letra-{{ ancoras[e.matricula] }}"{% endif %}>
+        <a href="/alunos/{{ e.matricula }}" class="linha-aluno">
+          {{ ft.foto(e.matricula, e.nome, e.matricula in com_foto) }}
+          <span class="dados">
+            <span class="nome">{{ e.nome }}</span>
+            <span class="suave">Matrícula {{ e.matricula }}</span>
+            {% if marcados.get(e.matricula) %}<span class="sinal-importante"><span aria-hidden="true">!</span> observação importante</span>{% endif %}
+          </span>
+          {% if f and f.percentual is not none %}<span class="freq num {{ 'abaixo' if f.abaixo_do_minimo }}" title="Frequência">{{ f.percentual|nota }}%</span>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <nav class="indice-letras" aria-label="Ir para a letra">
+      {% for l in alfabeto %}{% if l in letras %}<a href="#letra-{{ l }}" data-letra="{{ l }}">{{ l }}</a>{% else %}<span aria-hidden="true">{{ l }}</span>{% endif %}{% endfor %}
+    </nav>
+  </div>
+  <p class="suave" id="sem-resultado" hidden>Nenhum aluno com esse nome.</p>
+  {% if turma.qtd_estudantes is not none and turma.qtd_estudantes != estudantes|length %}
+  <p class="suave">O portal informa {{ turma.qtd_estudantes }} estudante(s); foram importados {{ estudantes|length }}.</p>
   {% endif %}
-  <div class="botoes"><a class="botao secundario" href="/turmas">Voltar</a></div>
-</div>
+  {% else %}
+  <p>Nenhum estudante importado para esta turma. <a href="/turmas">Buscar turmas e estudantes no SIGEduc</a>.</p>
+  {% endif %}
+</section>
+
+{# --- conteúdo (aulas por bimestre) --------------------------------------------- #}
+<section class="cartao painel-aba" id="aulas" role="tabpanel" aria-labelledby="aba-aulas">
+  <h2 class="sr">Conteúdo das aulas</h2>
+  <div class="bimestres" role="group" aria-label="Bimestre">
+    {% for b in range(1, 5) %}
+    <button type="button" data-bimestre="{{ b }}" aria-pressed="{{ 'true' if b == bimestre_atual else 'false' }}">{{ b }}º bimestre</button>
+    {% endfor %}
+  </div>
+  {% for b in range(1, 5) %}{% set lista = aulas | selectattr("bimestre", "equalto", b) | list %}
+  <div class="aulas-bimestre" data-aulas-bimestre="{{ b }}">
+    <h3 class="titulo-bimestre">{{ b }}º bimestre <span class="suave">· {{ lista|length }} registro(s)</span></h3>
+    {% if lista %}
+    <ul class="lista-aulas">
+      {% for a in lista|reverse %}
+      <li>
+        <a class="cartao-aula" href="/turmas/{{ turma.id }}/chamada?data={{ a.aula.data.isoformat() }}" aria-label="Editar aula de {{ a.extenso }}">
+          <span class="selo-bimestre">{{ b }}º B</span>
+          <span class="dados">
+            <span class="data">{{ a.extenso }}</span>
+            <span class="suave">{{ a.aula.quantidade }} aula(s) · {{ a.faltas }} falta(s)</span>
+            <span class="resumo-conteudo {{ 'vazio' if not a.aula.conteudo }}">{{ a.aula.conteudo or "Sem conteúdo registrado" }}</span>
+          </span>
+          <svg class="lapis" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="suave">Nenhuma aula registrada neste bimestre.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+  <div class="botoes">
+    <a class="botao" href="/turmas/{{ turma.id }}/chamada?data={{ hoje.isoformat() }}">Registrar aula de hoje</a>
+    <a class="botao secundario" href="/turmas/{{ turma.id }}/aulas">Frequência de todos</a>
+  </div>
+  <p class="suave">O conteúdo é registrado junto com a chamada. Toque numa aula para corrigir.</p>
+</section>
+
+{# --- lançar notas --------------------------------------------------------------- #}
+<section class="cartao painel-aba" id="notas" role="tabpanel" aria-labelledby="aba-notas">
+  <h2 class="sr">Lançar notas</h2>
+  {% if notas %}
+  <ul class="lista-composicoes">
+    {% for n in notas %}
+    <li class="cartao-composicao">
+      <div class="cabecalho-composicao">
+        <span class="selo-bimestre">{{ n.composicao.bimestre }}º B</span>
+        <strong>{{ n.composicao.nome }}</strong>
+        {% if n.liberado_em %}<span class="selo concluido">Liberada</span>{% endif %}
+      </div>
+      <p class="suave" style="margin:4px 0 8px">{{ n.composicao.ano_letivo }} · {{ n.avaliacoes }} avaliação(ões)</p>
+      <p class="progresso-notas">
+        <span class="medidor" aria-hidden="true"><span style="width: {{ (100 * n.completos / n.total) if n.total else 0 }}%"></span></span>
+        <span class="num">{{ n.completos }} de {{ n.total }} com média</span>
+        {% if n.total and n.completos < n.total %}<span class="pendente-texto">· faltam {{ n.total - n.completos }}</span>{% endif %}
+      </p>
+      <div class="botoes" style="margin-top:8px">
+        <a class="botao" href="/notas/{{ n.composicao.id }}/turmas/{{ turma.id }}?modo=aluno">Aluno por aluno</a>
+        <a class="botao secundario" href="/notas/{{ n.composicao.id }}/turmas/{{ turma.id }}">Lista da turma</a>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Nenhuma composição de notas aplicada a esta turma.</p>
+  {% endif %}
+  <div class="botoes">
+    <a class="botao secundario" href="/notas">Composições de notas</a>
+    <a class="botao secundario" href="/turmas/{{ turma.id }}/desempenho">Acompanhamento do ano letivo</a>
+  </div>
+  <details class="arquivos-turma">
+    <summary>Planilhas da turma</summary>
+    <p class="suave">Os modelos já vêm com matrícula, turma e componente.</p>
+    <div class="botoes">
+      <a class="botao secundario pequeno" href="/turmas/{{ turma.id }}/estudantes.csv">Lista de estudantes</a>
+      <a class="botao secundario pequeno" href="/turmas/{{ turma.id }}/modelo-notas.csv">Modelo de notas</a>
+      <a class="botao secundario pequeno" href="/turmas/{{ turma.id }}/modelo-frequencia.csv">Modelo de frequência</a>
+    </div>
+  </details>
+</section>
+
+<script>
+(() => {
+  // abas no próprio aparelho (a tela também abre sem internet); lembra a última aberta
+  const abas = [...document.querySelectorAll('.abas [role="tab"]')];
+  const chave = 'aba-turma';
+  function abrir(id, foco) {
+    abas.forEach((a) => {
+      const ativa = a.getAttribute('aria-controls') === id;
+      a.setAttribute('aria-selected', ativa);
+      a.tabIndex = ativa ? 0 : -1;
+      document.getElementById(a.getAttribute('aria-controls')).hidden = !ativa;
+      if (ativa && foco) a.focus();
+    });
+    try { sessionStorage.setItem(chave, id); } catch (e) {}
+  }
+  abas.forEach((a, i) => {
+    a.addEventListener('click', (e) => { e.preventDefault(); abrir(a.getAttribute('aria-controls')); history.replaceState(null, '', '#' + a.getAttribute('aria-controls')); });
+    a.addEventListener('keydown', (e) => {
+      const passo = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      if (passo) { e.preventDefault(); abrir(abas[(i + passo + abas.length) % abas.length].getAttribute('aria-controls'), true); }
+    });
+  });
+  let inicial = location.hash.slice(1);
+  if (!abas.some((a) => a.getAttribute('aria-controls') === inicial)) {
+    try { inicial = sessionStorage.getItem(chave) || 'alunos'; } catch (e) { inicial = 'alunos'; }
+  }
+  abrir(abas.some((a) => a.getAttribute('aria-controls') === inicial) ? inicial : 'alunos');
+
+  // busca e índice A–Z
+  const busca = document.getElementById('busca-aluno');
+  if (busca) {
+    const itens = [...document.querySelectorAll('#lista-alunos li')];
+    const semAcento = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    itens.forEach((li) => { li.dataset.busca = semAcento(li.dataset.busca); });
+    busca.addEventListener('input', () => {
+      const termo = semAcento(busca.value.trim());
+      let visiveis = 0;
+      itens.forEach((li) => { const ok = !termo || li.dataset.busca.includes(termo); li.hidden = !ok; visiveis += ok; });
+      document.getElementById('sem-resultado').hidden = visiveis > 0;
+    });
+    document.querySelectorAll('[data-letra]').forEach((l) => l.addEventListener('click', () => {
+      if (busca.value) { busca.value = ''; busca.dispatchEvent(new Event('input')); }
+    }));
+  }
+
+  // conteúdo: um bimestre por vez
+  const botoes = [...document.querySelectorAll('[data-bimestre]')];
+  function bimestre(b) {
+    botoes.forEach((x) => x.setAttribute('aria-pressed', x.dataset.bimestre === b));
+    document.querySelectorAll('[data-aulas-bimestre]').forEach((d) => { d.hidden = d.dataset.aulasBimestre !== b; });
+  }
+  botoes.forEach((x) => x.addEventListener('click', () => bimestre(x.dataset.bimestre)));
+  bimestre('{{ bimestre_atual }}');
+})();
+</script>
 {% endblock %}

@@ -26,7 +26,7 @@ from .. import sincronia
 from .. import turmas as turmas_repo
 from ..banco import Turma, Usuario
 from ..modelos import descrever_turma
-from ..config import Config, ConfigError
+from ..config import SOMENTE_LEITURA, Config, ConfigError
 from ..usuarios import RepositorioUsuarios, UsuarioNaoEncontrado
 from . import diario as diario_web
 from . import sincronia as sincronia_web
@@ -55,6 +55,12 @@ templates.env.filters["num"] = lambda v: "" if v is None else f"{v:g}".replace("
 templates.env.filters["dia"] = lambda d: d.strftime("%d/%m/%Y") if d else "—"
 templates.env.filters["nota"] = lambda v: "" if v is None else f"{v:.1f}".replace(".", ",")
 templates.env.filters["descrever_turma"] = descrever_turma
+
+
+def _letra(nome: str) -> str:
+    """Primeira letra sem acento, para o índice A–Z da lista de alunos."""
+    inicial = unicodedata.normalize("NFKD", nome.strip()[:1]).encode("ascii", "ignore").decode().upper()
+    return inicial if "A" <= inicial <= "Z" else "#"
 
 
 def _csv(nome: str, cabecalho: list[str], linhas: list[list]) -> Response:
@@ -99,6 +105,7 @@ def criar_app(
                 threading.Thread(
                     target=sincronia.rodar_agendador,
                     args=(sessoes, config.janela_sincronia, config.modo_sincronia, parar),
+                    kwargs={"somente_leitura": config.sigeduc_somente_leitura},
                     daemon=True,
                 ).start()
         yield
@@ -235,6 +242,9 @@ def criar_app(
             return voltar("/")
 
         if acao == "enviar" and (not leitura.erros or ignorar_erros):
+            if config.sigeduc_somente_leitura:
+                avisar(request, f"{SOMENTE_LEITURA} A planilha foi conferida, mas não entrou na fila.", "erro")
+                return voltar("/")
             if repo.dados_credencial(usuario.id) is None:
                 avisar(request, "Cadastre sua senha do SIGEduc antes de enviar planilhas.", "erro")
                 return voltar("/credencial")
@@ -304,26 +314,60 @@ def criar_app(
 
     @app.get("/turmas/{turma_id}", response_class=HTMLResponse)
     def detalhe_turma(request: Request, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
-        from .. import composicoes as comp
+        """Tela da turma (pensada para o celular): resumo, chamada e as abas Alunos,
+        Conteúdo (aulas por bimestre) e Lançar notas (composições aplicadas)."""
+        from datetime import date
 
-        turma = turma_permitida(turma_id, usuario)
-        aplicadas = [
-            e.composicao for e, _ in comp.listar(sessoes, turma.usuario_id)
-            if turma.id in {t.id for _, t in comp.turmas_aplicadas(sessoes, e.composicao.id)}
-        ]
+        from .. import composicoes as comp
         from .. import diario
 
+        turma = turma_permitida(turma_id, usuario)
         estudantes = turmas_repo.estudantes(sessoes, turma.id)
+        frequencia = diario.frequencia_da_turma(sessoes, turma.id)
+        inicios = diario.inicios_dos_bimestres(config.bimestres)
+        hoje = date.today()
+
+        aulas = [
+            SimpleNamespace(aula=a, faltas=faltas, bimestre=diario.bimestre_da_data(a.data, inicios),
+                            extenso=diario.data_por_extenso(a.data))
+            for a, faltas in diario.aulas(sessoes, turma.id)
+        ]
+        notas = []
+        for estrutura, _ in comp.listar(sessoes, turma.usuario_id):
+            ligacao = next((l for l, t in comp.turmas_aplicadas(sessoes, estrutura.composicao.id) if t.id == turma.id), None)
+            if ligacao is None:
+                continue
+            linhas = comp.planilha(sessoes, estrutura.composicao.id, turma.id)
+            notas.append(SimpleNamespace(
+                composicao=estrutura.composicao,
+                avaliacoes=len(estrutura.avaliacoes),
+                completos=sum(1 for l in linhas if l.media is not None),
+                total=len(linhas),
+                liberado_em=ligacao.enviado_em,
+            ))
+        notas.sort(key=lambda n: (-n.composicao.ano_letivo, -n.composicao.bimestre, n.composicao.nome))
+
+        letras = {}
+        for e in estudantes:
+            letras.setdefault(_letra(e.nome), e.matricula)
         return pagina(
             request,
             "turma.html",
             usuario,
             turma=turma,
             estudantes=estudantes,
-            composicoes=aplicadas,
-            frequencia=diario.frequencia_da_turma(sessoes, turma.id),
+            frequencia=frequencia,
             marcados=diario.contagem_anotacoes(sessoes, usuario.id, [e.matricula for e in estudantes]),
             com_foto=turmas_repo.com_foto(sessoes, [e.matricula for e in estudantes]),
+            letras=letras,
+            ancoras={matricula: letra for letra, matricula in letras.items()},
+            alfabeto=[chr(c) for c in range(ord("A"), ord("Z") + 1)],
+            aulas=aulas,
+            aulas_dadas=sum(a.aula.quantidade for a in aulas),
+            bimestre_atual=diario.bimestre_da_data(hoje, inicios),
+            abaixo=sum(1 for f in frequencia.values() if f.abaixo_do_minimo),
+            notas=notas,
+            hoje=hoje,
         )
 
     @app.get("/turmas/{turma_id}/{arquivo}.csv")

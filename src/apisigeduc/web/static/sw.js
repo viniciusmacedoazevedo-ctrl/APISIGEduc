@@ -2,10 +2,10 @@
 // Guarda os arquivos fixos do app e, para lançar sem internet, as telas de chamada e
 // de notas já abertas (lista da turma) e as fotos dos estudantes. Os lançamentos feitos
 // sem internet ficam em offline.js até serem enviados. Sair da conta apaga tudo.
-const VERSAO = "apisigeduc-v6";
+const VERSAO = "apisigeduc-v7";
 const PAGINAS = "apisigeduc-paginas";
-// telas que podem abrir sem internet: chamada e grade de notas de uma turma
-const OFFLINE = [/^\/turmas\/\d+\/chamada$/, /^\/notas\/\d+\/turmas\/\d+$/];
+// telas que podem abrir sem internet: a turma (abas), a chamada e a grade de notas
+const OFFLINE = [/^\/turmas\/\d+$/, /^\/turmas\/\d+\/chamada$/, /^\/notas\/\d+\/turmas\/\d+$/];
 const FOTO = /^\/alunos\/[^/]+\/foto$/;
 const FIXOS = [
   "/static/app.css",

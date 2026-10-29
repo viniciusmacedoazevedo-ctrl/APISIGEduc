@@ -29,6 +29,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             entregas=sincronia.listar(sessoes),
             janela=ctx.config.janela_sincronia,
             modo_agendado=ctx.config.modo_sincronia,
+            somente_leitura=ctx.config.sigeduc_somente_leitura,
             MODOS=sincronia.MODOS,
         )
 
@@ -36,7 +37,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
     def carga(request: Request, modo: str = Form(...), csrf_token: str = Form(""), usuario: Usuario = Depends(admin_logado)):
         verificar_csrf(request, csrf_token)
         try:
-            entrega = sincronia.executar(sessoes, modo, usuario.id)
+            entrega = sincronia.executar(sessoes, modo, usuario.id, somente_leitura=ctx.config.sigeduc_somente_leitura)
         except ValueError as e:
             avisar(request, str(e), "erro")
             return voltar("/admin/sincronizacao")

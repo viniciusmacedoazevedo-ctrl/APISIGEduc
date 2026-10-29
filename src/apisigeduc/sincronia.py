@@ -185,10 +185,20 @@ def montar_arquivo(itens: list[Item], contexto: Contexto, numero: int, quando: d
 
 
 # --- carga ----------------------------------------------------------------------------
-def executar(sessoes: sessionmaker, modo: str, criado_por_id: int | None, agora: datetime | None = None) -> Entrega | None:
+def executar(
+    sessoes: sessionmaker,
+    modo: str,
+    criado_por_id: int | None,
+    agora: datetime | None = None,
+    somente_leitura: bool = True,
+) -> Entrega | None:
     """Faz uma carga com tudo o que está pendente. None se não há nada pendente."""
     if modo not in MODOS:
         raise ValueError("Modo de carga inválido")
+    if modo == "sigeduc" and somente_leitura:
+        from .config import SOMENTE_LEITURA
+
+        raise ValueError(SOMENTE_LEITURA)
     agora = agora or datetime.now()
     itens, contexto = pendentes(sessoes)
     if modo == "sigeduc":
@@ -276,7 +286,9 @@ def hora_da_janela(janela: str) -> tuple[int, int] | None:
     return (hora, minuto) if 0 <= hora < 24 and 0 <= minuto < 60 else None
 
 
-def executar_agendada(sessoes: sessionmaker, janela: str, modo: str, agora: datetime | None = None) -> Entrega | None:
+def executar_agendada(
+    sessoes: sessionmaker, janela: str, modo: str, agora: datetime | None = None, somente_leitura: bool = True
+) -> Entrega | None:
     """Na janela do dia (a partir do horário, uma vez por dia), faz a carga agendada."""
     agora = agora or datetime.now()
     hm = hora_da_janela(janela)
@@ -289,14 +301,19 @@ def executar_agendada(sessoes: sessionmaker, janela: str, modo: str, agora: date
         )
     if ja:
         return None
-    return executar(sessoes, modo, None, agora)
+    return executar(sessoes, modo, None, agora, somente_leitura)
 
 
-def rodar_agendador(sessoes: sessionmaker, janela: str, modo: str, parar, intervalo: float = 60.0) -> None:
+def rodar_agendador(
+    sessoes: sessionmaker, janela: str, modo: str, parar, intervalo: float = 60.0, somente_leitura: bool = True
+) -> None:
+    if modo == "sigeduc" and somente_leitura:
+        log.warning("Carga agendada pelo robô desligada (só consulta ao SIGEduc); gerando arquivo padronizado")
+        modo = "arquivo"
     log.info("Carga agendada diária às %s (%s)", janela, modo)
     while not parar.is_set():
         try:
-            executar_agendada(sessoes, janela, modo)
+            executar_agendada(sessoes, janela, modo, somente_leitura=somente_leitura)
         except Exception:
             log.exception("Erro na carga agendada")
         parar.wait(intervalo)

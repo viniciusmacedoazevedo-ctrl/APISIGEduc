@@ -17,6 +17,16 @@ def app(config, sessoes, repo):
     return criar_app(config, sessoes, repo, iniciar_worker=False)
 
 
+@pytest.fixture
+def app_gravando(config, sessoes, repo):
+    """Gravação no SIGEduc ligada: só para um SIGEduc de testes, nunca no real."""
+    from dataclasses import replace
+
+    repo.criar("admin@escola.br", "Admin", "senha-admin", admin=True)
+    repo.criar("prof@escola.br", "Prof", "senha-prof")
+    return criar_app(replace(config, sigeduc_somente_leitura=False), sessoes, repo, iniciar_worker=False)
+
+
 def _csrf(cliente, caminho="/login"):
     return re.search(r'name="csrf_token" value="([^"]+)"', cliente.get(caminho).text).group(1)
 
@@ -41,7 +51,17 @@ def test_senha_errada_e_csrf(app):
     assert r.status_code == 400
 
 
-def test_fluxo_do_professor(app, sessoes, repo):
+def test_por_padrao_nao_grava_no_sigeduc(app, sessoes, repo):
+    cliente = _entrar(app, "prof@escola.br", "senha-prof")
+    repo.definir_credencial(repo.por_email("prof@escola.br").id, "p", "s")
+    csrf = _csrf(cliente, "/")
+    arquivo = {"arquivo": ("notas.csv", (EXEMPLOS / "notas.csv").read_bytes(), "text/csv")}
+    r = cliente.post("/envios", data={"tipo": "notas", "acao": "enviar", "csrf_token": csrf}, files=arquivo)
+    assert "só consulta o SIGEduc" in r.text and envios.listar(sessoes) == []
+
+
+def test_fluxo_do_professor(app_gravando, sessoes, repo):
+    app = app_gravando
     cliente = _entrar(app, "prof@escola.br", "senha-prof")
     assert "ainda não cadastrou sua senha do SIGEduc" in cliente.get("/").text
     assert cliente.get("/admin/usuarios").status_code == 403
@@ -68,7 +88,8 @@ def test_fluxo_do_professor(app, sessoes, repo):
     assert cliente.get(f"/envios/{envio.id}").status_code == 200
 
 
-def test_planilha_com_erro_nao_entra_na_fila(app, sessoes, repo):
+def test_planilha_com_erro_nao_entra_na_fila(app_gravando, sessoes, repo):
+    app = app_gravando
     cliente = _entrar(app, "prof@escola.br", "senha-prof")
     repo.definir_credencial(repo.por_email("prof@escola.br").id, "p", "s")
     csrf = _csrf(cliente, "/")

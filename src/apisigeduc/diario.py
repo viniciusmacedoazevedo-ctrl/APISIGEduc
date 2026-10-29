@@ -26,6 +26,29 @@ CATEGORIAS = {
 }
 QUANTIDADE_MAXIMA = 6
 TAMANHO_MAXIMO_TEXTO = 4000
+MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto",
+         "setembro", "outubro", "novembro", "dezembro"]
+
+
+def inicios_dos_bimestres(texto: str) -> list[tuple[int, int]]:
+    """"02-01,05-04,08-01,10-13" -> [(2, 1), (5, 4), (8, 1), (10, 13)]: início de cada bimestre."""
+    inicios = []
+    for parte in texto.split(","):
+        mes, dia = (int(x) for x in parte.strip().split("-"))
+        date(2000, mes, dia)  # confere se a data existe
+        inicios.append((mes, dia))
+    if len(inicios) != 4 or inicios != sorted(inicios):
+        raise ValueError("Informe o início dos 4 bimestres em ordem, como 02-01,05-04,08-01,10-13")
+    return inicios
+
+
+def bimestre_da_data(dia: date, inicios: list[tuple[int, int]]) -> int:
+    """Bimestre da aula; antes do início do 1º conta como 1º."""
+    return max([1] + [n for n, (mes, d) in enumerate(inicios, start=1) if (dia.month, dia.day) >= (mes, d)])
+
+
+def data_por_extenso(dia: date) -> str:
+    return f"{dia.day:02d} de {MESES[dia.month - 1]} de {dia.year}"
 
 
 # --- aulas e chamada ------------------------------------------------------------

@@ -16,6 +16,15 @@
 <form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}" class="cartao" id="grade" data-offline="Notas de {{ turma.codigo }} ({{ composicao.nome }})">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   {% if linhas %}
+  <div class="modo-lancamento" role="group" aria-label="Como lançar">
+    <button type="button" data-modo="lista" aria-pressed="true">Lista da turma</button>
+    <button type="button" data-modo="aluno" aria-pressed="false">Aluno por aluno</button>
+  </div>
+  <div class="passo-aluno" hidden>
+    <button type="button" class="botao secundario" data-passo="-1">‹ Anterior</button>
+    <span id="posicao-aluno" class="num" aria-live="polite"></span>
+    <button type="button" class="botao secundario" data-passo="1">Próximo ›</button>
+  </div>
   {# celular: modo chamada, uma avaliação por vez, aluno por aluno #}
   <div class="chamada" aria-label="Escolha a avaliação">
     <div class="avaliacoes" role="group">
@@ -59,15 +68,15 @@
       <td class="aluno"><span class="aluno-com-foto">{{ ft.foto(l.matricula, l.nome, l.matricula in com_foto) }}<span><a href="/alunos/{{ l.matricula }}" class="link-aluno">{{ l.nome }}</a>{% if marcados.get(l.matricula) %} <a class="sinal-importante" href="/alunos/{{ l.matricula }}" title="Este estudante tem observação importante; toque para ler na ficha"><span aria-hidden="true">!</span> observação importante</a>{% endif %}<br><span class="suave">{{ l.matricula }}</span></span></span></td>
       {% for g in estrutura.grupos %}
       {% for a in g.avaliacoes %}
-      <td style="text-align:center" class="{{ 'col-grupo' if loop.first }}" data-coluna="{{ a.id }}"><input type="text" class="nota" inputmode="decimal" enterkeyhint="next" name="n_{{ a.id }}_{{ l.matricula }}"
+      <td style="text-align:center" class="{{ 'col-grupo' if loop.first }}" data-coluna="{{ a.id }}" data-rotulo="{{ (g.grupo.nome ~ ' · ' ~ a.nome) if g.avaliacoes|length > 1 else a.nome }} (vale {{ a.valor_maximo|num }})"><input type="text" class="nota" inputmode="decimal" enterkeyhint="next" name="n_{{ a.id }}_{{ l.matricula }}"
           value="{{ l.notas.get(a.id)|num }}" data-item="{{ a.id }}" data-max="{{ a.valor_maximo }}" aria-label="{{ a.nome }} de {{ l.nome }}"></td>
       {% endfor %}
       {% if g.avaliacoes|length > 1 %}
       {% set parcial = l.grupos.get(g.grupo.id) %}
-      <td class="media vazia" data-grupo="{{ g.grupo.id }}">{{ (parcial|round(2))|num if parcial is not none else "—" }}</td>
+      <td class="media vazia" data-grupo="{{ g.grupo.id }}" data-rotulo="Nota do grupo {{ g.grupo.nome }}">{{ (parcial|round(2))|num if parcial is not none else "—" }}</td>
       {% endif %}
       {% endfor %}
-      <td class="media col-grupo {{ 'vazia' if l.media is none }}" data-media aria-label="Média">{{ l.media|num if l.media is not none else "—" }}</td>
+      <td class="media col-grupo {{ 'vazia' if l.media is none }}" data-media aria-label="Média" data-rotulo="Média do bimestre">{{ l.media|num if l.media is not none else "—" }}</td>
     </tr>
     {% endfor %}
     </tbody>
@@ -166,11 +175,18 @@
 
   grade.addEventListener('input', (e) => { if (e.target.dataset.item) recalcular(e.target.closest('tr')); });
 
-  // Enter (ou "próximo" no teclado do celular) desce para o próximo aluno, como na chamada
+  // Enter (ou "próximo" no teclado do celular) desce para o próximo aluno, como na chamada;
+  // no modo aluno por aluno, vai para a próxima avaliação e, no fim, para o próximo aluno
   grade.addEventListener('keydown', (e) => {
     const campo = e.target;
     if (e.key !== 'Enter' || !campo.dataset.item) return;
     e.preventDefault();
+    if (grade.classList.contains('modo-aluno')) {
+      const campos = [...campo.closest('tr').querySelectorAll('input[data-item]')];
+      const seguinte = campos[campos.indexOf(campo) + 1];
+      if (seguinte) { seguinte.focus(); seguinte.select(); } else { mostrarAluno(atual + 1, true); }
+      return;
+    }
     const proximo = linhas[linhas.indexOf(campo.closest('tr')) + 1];
     const alvo = proximo && proximo.querySelector(`input[data-item="${campo.dataset.item}"]`);
     if (alvo) { alvo.focus(); alvo.select(); } else { campo.blur(); }
@@ -201,6 +217,34 @@
   });
   todosMovel.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); grade.querySelector('[data-aplicar-todos]').click(); } });
   escolher(ativa);
+
+  // aluno por aluno: um cartão por estudante, com todas as avaliações
+  const passo = grade.querySelector('.passo-aluno');
+  const posicao = document.getElementById('posicao-aluno');
+  let atual = 0;
+  function mostrarAluno(i, focar) {
+    if (i >= linhas.length) { posicao.textContent = `Fim da lista · ${progresso.textContent}`; grade.querySelector('.barra-acoes .botao').focus(); return; }
+    atual = Math.max(0, i);
+    linhas.forEach((l, n) => l.classList.toggle('atual', n === atual));
+    posicao.textContent = `${atual + 1} de ${linhas.length}`;
+    passo.querySelector('[data-passo="-1"]').disabled = atual === 0;
+    passo.querySelector('[data-passo="1"]').disabled = atual === linhas.length - 1;
+    if (focar) { const c = linhas[atual].querySelector('input[data-item]'); if (c) { c.focus(); c.select(); } }
+  }
+  function modo(qual) {
+    const aluno = qual === 'aluno';
+    grade.classList.toggle('modo-aluno', aluno);
+    passo.hidden = !aluno;
+    grade.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.modo === qual));
+    if (aluno) mostrarAluno(Math.max(0, linhas.findIndex((l) => l.classList.contains('pendente'))));
+    else linhas.forEach((l) => l.classList.remove('atual'));
+    try { localStorage.setItem('modo-notas', qual); } catch (e) {}
+  }
+  grade.querySelectorAll('[data-modo]').forEach((b) => b.addEventListener('click', () => modo(b.dataset.modo)));
+  passo.querySelectorAll('[data-passo]').forEach((b) => b.addEventListener('click', () => mostrarAluno(atual + Number(b.dataset.passo))));
+  let inicial = new URLSearchParams(location.search).get('modo');
+  if (!inicial) { try { inicial = localStorage.getItem('modo-notas'); } catch (e) {} }
+  modo(inicial === 'aluno' ? 'aluno' : 'lista');
 
   // aviso antes de sair com notas não salvas
   let alterado = false;

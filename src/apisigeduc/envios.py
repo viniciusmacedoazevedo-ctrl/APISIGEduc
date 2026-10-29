@@ -118,6 +118,11 @@ def processar_proximo(
     if envio is None:
         return False
     log.info("Processando envio %d (%s, %s)", envio.id, envio.tipo, envio.arquivo_nome)
+    if envio.tipo != "turmas" and config.sigeduc_somente_leitura:
+        from .config import SOMENTE_LEITURA
+
+        _finalizar(sessoes, envio.id, status="falhou", mensagem=SOMENTE_LEITURA)
+        return True
 
     if abrir_cliente is None:
         from .cliente import SigeducCliente as abrir_cliente

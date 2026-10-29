@@ -138,3 +138,40 @@ def test_migracao_anotacoes_sem_importante(tmp_path):
     sessoes = criar_sessoes(url)
     [nota] = diario.anotacoes(sessoes, 7, "123")
     assert nota.texto == "antiga" and nota.importante is False
+
+
+def test_bimestre_das_aulas():
+    inicios = diario.inicios_dos_bimestres("02-01,05-04,08-01,10-13")
+    assert [diario.bimestre_da_data(date(2026, m, d), inicios) for m, d in
+            [(1, 20), (2, 23), (5, 3), (5, 4), (8, 3), (10, 9), (10, 13), (12, 18)]] == [1, 1, 1, 2, 3, 3, 4, 4]
+    assert diario.data_por_extenso(date(2026, 3, 5)) == "05 de março de 2026"
+    for ruim in ("02-01,05-04,08-01", "05-04,02-01,08-01,10-13", "02-30,05-04,08-01,10-13"):
+        with pytest.raises(ValueError):
+            diario.inicios_dos_bimestres(ruim)
+
+
+def test_tela_da_turma_com_abas(config, sessoes, repo, cenario):
+    from apisigeduc import composicoes as comp
+
+    prof, _, _, turma = cenario
+    ivan = ALUNOS[0].matricula
+    diario.salvar_chamada(sessoes, turma.id, date(2026, 3, 2), 2, "Pré-história: fontes históricas", "", {ivan})
+    diario.salvar_chamada(sessoes, turma.id, date(2026, 8, 3), 1, "", "", set())
+    cid = comp.criar(sessoes, prof.id, "3º bimestre", 2026, 3, "soma",
+                     [comp.GrupoNovo("Prova", 10, avaliacoes=[comp.AvaliacaoNova("Prova", 10)])])
+    comp.aplicar(sessoes, cid, [turma.id])
+    prova = comp.obter(sessoes, cid).avaliacoes[0]
+    comp.salvar_notas(sessoes, cid, turma.id, {(prova.id, ivan): "7"})
+
+    cliente = _entrar(criar_app(config, sessoes, repo, iniciar_worker=False), "prof@escola.br", "senha-prof")
+    html = cliente.get(f"/turmas/{turma.id}").text
+    for aba in ('aria-controls="alunos"', 'aria-controls="aulas"', 'aria-controls="notas"'):
+        assert aba in html
+    assert 'id="letra-I"' in html and 'id="letra-W"' in html and 'href="#letra-I"' in html
+    assert "02 de março de 2026" in html and "Pré-história: fontes históricas" in html
+    assert "Sem conteúdo registrado" in html  # aula de agosto sem conteúdo
+    assert 'data-aulas-bimestre="1"' in html and 'data-aulas-bimestre="3"' in html
+    assert "1 de 2 com média" in html and f"/notas/{cid}/turmas/{turma.id}?modo=aluno" in html
+    # o outro professor não abre a turma
+    outro = _entrar(criar_app(config, sessoes, repo, iniciar_worker=False), "outro@escola.br", "senha-outro")
+    assert outro.get(f"/turmas/{turma.id}").status_code == 404

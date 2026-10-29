@@ -38,6 +38,11 @@ class Config:
     # janela diária de carga para a SEEC ("19:00"; vazio = só carga manual) e o modo
     janela_sincronia: str = ""
     modo_sincronia: str = "arquivo"  # arquivo | sigeduc
+    # o robô só consulta o SIGEduc (turmas, estudantes, fotos); nunca grava nem apaga lá.
+    # Desligar só num SIGEduc de testes, nunca no real.
+    sigeduc_somente_leitura: bool = True
+    # início de cada bimestre (mês-dia), para separar as aulas na tela da turma
+    bimestres: str = "02-01,05-04,08-01,10-13"
 
     @classmethod
     def carregar(cls) -> "Config":
@@ -49,7 +54,7 @@ class Config:
                 "Defina APISIGEDUC_BANCO_URL no .env, por exemplo "
                 "postgresql://apisigeduc:senha@localhost:5432/apisigeduc"
             )
-        return cls(
+        config = cls(
             url=os.getenv("SIGEDUC_URL", "https://sigeduc.rn.gov.br/sigeduc").rstrip("/"),
             banco_url=banco_url,
             chave=os.getenv("SIGEDUC_CHAVE", ""),
@@ -61,4 +66,19 @@ class Config:
             media_minima=float(os.getenv("APISIGEDUC_MEDIA_MINIMA", "6").replace(",", ".")),
             janela_sincronia=os.getenv("APISIGEDUC_JANELA_SINCRONIA", "").strip(),
             modo_sincronia=os.getenv("APISIGEDUC_MODO_SINCRONIA", "arquivo").strip() or "arquivo",
+            sigeduc_somente_leitura=_bool(os.getenv("APISIGEDUC_SIGEDUC_SOMENTE_LEITURA"), True),
+            bimestres=os.getenv("APISIGEDUC_BIMESTRES", "").strip() or cls.bimestres,
         )
+        from .diario import inicios_dos_bimestres
+
+        try:
+            inicios_dos_bimestres(config.bimestres)
+        except ValueError as e:
+            raise ConfigError(f"APISIGEDUC_BIMESTRES inválido ({config.bimestres!r}): {e}") from None
+        return config
+
+
+SOMENTE_LEITURA = (
+    "O APISIGEduc só consulta o SIGEduc: lançar ou apagar dados lá pelo robô está desligado "
+    "(APISIGEDUC_SIGEDUC_SOMENTE_LEITURA)."
+)
