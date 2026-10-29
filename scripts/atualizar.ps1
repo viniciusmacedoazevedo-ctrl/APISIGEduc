@@ -42,21 +42,46 @@ $depois = (git rev-parse HEAD).Trim()
 
 if ($antes -eq $depois) {
     Registrar "Já está atualizado ($($depois.Substring(0, 7)))."
+} else {
+    Registrar "Atualizado de $($antes.Substring(0, 7)) para $($depois.Substring(0, 7)):"
+    git log --oneline "$antes..$depois" | ForEach-Object { Registrar "  $_" }
+}
+
+# --- dependências --------------------------------------------------------------
+# Reinstala quando o pyproject.toml mudou, quando uma reinstalação anterior falhou
+# (marca em logs\reinstalar-pendente) ou quando o pacote não está instalado.
+$python = Join-Path $projeto ".venv\Scripts\python.exe"
+$pendente = Join-Path $projeto "logs\reinstalar-pendente"
+if (-not (Test-Path $python)) {
+    Registrar "AVISO: .venv não encontrado; crie com: python -m venv .venv"
     exit 0
 }
-
-Registrar "Atualizado de $($antes.Substring(0, 7)) para $($depois.Substring(0, 7)):"
-git log --oneline "$antes..$depois" | ForEach-Object { Registrar "  $_" }
-
-$mudou = git diff --name-only $antes $depois -- pyproject.toml
-if ($mudou) {
-    $python = Join-Path $projeto ".venv\Scripts\python.exe"
-    if (Test-Path $python) {
-        Registrar "pyproject.toml mudou: reinstalando dependências..."
-        & $python -m pip install -q -e ".[dev]"
-        if ($LASTEXITCODE -ne 0) { Registrar "ERRO ao reinstalar dependências."; exit 1 }
-        Registrar "Dependências atualizadas."
-    } else {
-        Registrar "AVISO: .venv não encontrado; rode: pip install -e "".[dev]"""
-    }
+$motivo = $null
+if ($antes -ne $depois -and (git diff --name-only $antes $depois -- pyproject.toml)) { $motivo = "o pyproject.toml mudou" }
+elseif (Test-Path $pendente) { $motivo = "a reinstalação anterior não terminou" }
+else {
+    & $python -c "import apisigeduc" 2>$null
+    if ($LASTEXITCODE -ne 0) { $motivo = "o pacote apisigeduc não está instalado" }
 }
+if (-not $motivo) { exit 0 }
+
+# No Windows, o apisigeduc.exe em uso (apisigeduc web aberto) impede a reinstalação
+$emUso = Get-Process -Name "apisigeduc" -ErrorAction SilentlyContinue
+if ($emUso) {
+    New-Item -ItemType File -Force -Path $pendente | Out-Null
+    Registrar "AVISO: é preciso reinstalar as dependências ($motivo), mas o apisigeduc está aberto."
+    Registrar "Feche o apisigeduc web (Ctrl+C na janela dele) e rode este script de novo."
+    exit 1
+}
+
+Registrar "Reinstalando dependências ($motivo)..."
+New-Item -ItemType File -Force -Path $pendente | Out-Null
+$saida = & $python -m pip install --disable-pip-version-check -e ".[dev]" 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) {
+    $final = ($saida.Trim() -split "`r?`n" | Select-Object -Last 15) -join "`n"
+    Registrar "ERRO ao reinstalar dependências. Últimas linhas do pip:`n$final"
+    Registrar "Corrija e rode este script de novo (ele vai tentar outra vez)."
+    exit 1
+}
+Remove-Item $pendente -ErrorAction SilentlyContinue
+Registrar "Dependências atualizadas."
