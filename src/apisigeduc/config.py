@@ -31,6 +31,8 @@ class Config:
     headless: bool = True
     timeout_ms: int = 30000
     pausa_ms: int = 500
+    # quanto tempo esperar uma pessoa resolver a verificação humana do login
+    espera_verificacao_s: int = 300
 
     @classmethod
     def carregar(cls) -> "Config":
@@ -50,4 +52,5 @@ class Config:
             headless=_bool(os.getenv("SIGEDUC_HEADLESS"), True),
             timeout_ms=int(os.getenv("SIGEDUC_TIMEOUT_MS", "30000")),
             pausa_ms=int(os.getenv("SIGEDUC_PAUSA_MS", "500")),
+            espera_verificacao_s=int(os.getenv("SIGEDUC_ESPERA_VERIFICACAO_S", "300")),
         )

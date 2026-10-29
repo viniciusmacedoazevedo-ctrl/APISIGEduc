@@ -88,6 +88,18 @@ O comando `web` já processa a fila. Para separar, rode `apisigeduc web --sem-wo
 em outro terminal, `apisigeduc worker`. Vários workers podem rodar ao mesmo tempo sem
 pegar o mesmo envio.
 
+### Verificação humana no login
+
+O SIGEduc pode pedir uma verificação ("não sou um robô") no login. O programa **não**
+tenta resolvê-la: com o navegador visível (`SIGEDUC_HEADLESS=false`), ele preenche
+usuário e senha, avisa no terminal e espera uma pessoa resolver a verificação e clicar em
+Entrar na janela do navegador (até `SIGEDUC_ESPERA_VERIFICACAO_S` segundos). Depois
+continua sozinho. Com o navegador invisível, o login falha com uma mensagem explicando isso.
+
+Para usar a fila da tela web nesse caso, rode o `apisigeduc web` com
+`SIGEDUC_HEADLESS=false` no computador onde alguém possa resolver a verificação quando a
+janela abrir.
+
 ## Uso pela tela web
 
 1. **Senha do SIGEduc:** cada pessoa cadastra o próprio login e senha do SIGEduc.

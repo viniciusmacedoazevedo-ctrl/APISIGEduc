@@ -18,6 +18,10 @@ from .usuarios import Credencial
 log = logging.getLogger(__name__)
 
 
+def _duracao(segundos: int) -> str:
+    return f"{segundos // 60} minuto(s)" if segundos >= 60 else f"{segundos} segundo(s)"
+
+
 class ErroLogin(RuntimeError):
     pass
 
@@ -86,11 +90,25 @@ class SigeducCliente:
         self.page.goto(self.config.url + S.LOGIN_PATH)
         self.page.fill(S.LOGIN_USUARIO, self.credencial.login)
         self.page.fill(S.LOGIN_SENHA, self.credencial.senha)
+
+        if self._tem_verificacao() and not self.config.headless:
+            # não adianta clicar em Entrar antes de a pessoa resolver a verificação
+            self._esperar_pessoa()
+        else:
+            self._enviar_login()
+            if self._na_tela_login() and not self.config.headless:
+                self._esperar_pessoa()  # verificação apareceu só depois do clique
+
+        if self._na_tela_login():
+            raise ErroLogin(f"Não foi possível entrar no SIGEduc: {self._motivo_falha_login()}")
+        log.info("Login realizado como %s (%s)", self.credencial.login, self.page.url)
+
+    def _enviar_login(self) -> None:
         botao = self.page.locator(S.LOGIN_ENTRAR)
         # espera a resposta do SIGEduc: sem isso a página de login ainda estaria
         # na tela quando o resultado fosse conferido
         try:
-            with self.page.expect_navigation(wait_until="load"):
+            with self.page.expect_navigation(wait_until="load", timeout=min(self.config.timeout_ms, 15000)):
                 if botao.count() > 0:
                     botao.first.click()
                 else:
@@ -100,10 +118,28 @@ class SigeducCliente:
             log.debug("O envio do login não mudou de página")
         self.esperar_carregar()
 
-        ainda_no_login = self.page.locator(S.LOGIN_SENHA).count() > 0
-        if ainda_no_login and self.page.locator(S.LOGADO).count() == 0:
-            raise ErroLogin(f"Não foi possível entrar no SIGEduc: {self._motivo_falha_login()}")
-        log.info("Login realizado como %s (%s)", self.credencial.login, self.page.url)
+    def _na_tela_login(self) -> bool:
+        return self.page.locator(S.LOGIN_SENHA).count() > 0 and self.page.locator(S.LOGADO).count() == 0
+
+    def _tem_verificacao(self) -> bool:
+        return self.page.locator(S.LOGIN_VERIFICACAO).count() > 0
+
+    def _esperar_pessoa(self) -> None:
+        """Espera alguém resolver a verificação humana e entrar, na janela do navegador."""
+        aviso = (
+            f"\n>>> O SIGEduc pediu uma verificação no login de {self.credencial.login}.\n"
+            f">>> Na janela do navegador, resolva a verificação e clique em Entrar.\n"
+            f">>> Aguardando até {_duracao(self.config.espera_verificacao_s)}...\n"
+        )
+        print(aviso, file=sys.stderr, flush=True)
+        try:
+            self.page.locator(S.LOGIN_SENHA).wait_for(
+                state="detached", timeout=self.config.espera_verificacao_s * 1000
+            )
+        except PlaywrightTimeoutError:
+            raise ErroLogin("A verificação do login não foi concluída a tempo.") from None
+        self.esperar_carregar()
+        log.info("Verificação concluída")
 
     def esperar_carregar(self) -> None:
         """Espera a rede acalmar, sem falhar em páginas que nunca ficam totalmente paradas."""
@@ -113,6 +149,11 @@ class SigeducCliente:
             pass
 
     def _motivo_falha_login(self) -> str:
+        if self._tem_verificacao() and self.config.headless:
+            return (
+                "o SIGEduc pediu uma verificação humana (\"não sou um robô\"). Rode com o "
+                "navegador visível (SIGEDUC_HEADLESS=false) para resolvê-la na janela"
+            )
         erro = self.page.locator(S.LOGIN_ERRO)
         if erro.count() and erro.first.inner_text().strip():
             return erro.first.inner_text().strip()

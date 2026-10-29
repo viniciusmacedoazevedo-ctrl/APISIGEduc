@@ -17,6 +17,13 @@ LOGIN_ENTRAR = (
     "form:has(input[name='user.senha']) input[type='image'], "
     "form:has(input[name='user.senha']) button"
 )
+# Verificação humana ("não sou um robô") que o SIGEduc pode exibir no login.
+# Ela é resolvida por uma pessoa na janela do navegador; o programa só espera.
+LOGIN_VERIFICACAO = (
+    "iframe[src*='recaptcha'], iframe[src*='hcaptcha'], iframe[src*='turnstile'], "
+    "iframe[src*='challenges.cloudflare'], .g-recaptcha, .h-captcha, .cf-turnstile, "
+    "[id*='captcha' i], [class*='captcha' i], [name*='captcha' i]"
+)
 LOGIN_ERRO = ".erros, #painel-erros, .msgErro, .error, .alert-danger, #mensagens-erro"
 # Elemento que só existe depois de logado (ex.: link "Sair"). Também se
 # considera logado quando o campo de senha some da página.
