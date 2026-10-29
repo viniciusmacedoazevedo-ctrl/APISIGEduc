@@ -77,6 +77,10 @@ apisigeduc usuario adicionar seu@email.com --nome "Seu Nome" --admin
 
 ### 4. Iniciar
 
+No Windows, dê **duplo clique em `Iniciar APISIGEduc.bat`** na pasta do projeto: ele inicia
+o servidor (com o navegador do robô visível) e abre o sistema. Deixe a janela aberta
+enquanto usa. Ou, no terminal com o ambiente ativado:
+
 ```bash
 apisigeduc web
 ```

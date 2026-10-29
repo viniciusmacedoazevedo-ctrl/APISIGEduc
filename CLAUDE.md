@@ -11,6 +11,8 @@ no `README.md`.
 - Atualiza com `scripts\atualizar.ps1` (puxa a branch e reinstala dependências quando
   preciso). **O `apisigeduc web` precisa estar fechado** ao reinstalar: o Windows bloqueia
   o `apisigeduc.exe` em uso.
+- Inicia o servidor com duplo clique em `Iniciar APISIGEduc.bat` (ou `apisigeduc web` com
+  o `.venv` ativado: sem `(.venv)` no prompt, o comando `apisigeduc` não é encontrado).
 - PostgreSQL local (banco e usuário `apisigeduc`). Usuário de teste do SIGEduc liberado
   para testes (dados reais desse usuário podem ser usados nos testes).
 - Branch de trabalho: `claude/bold-heisenberg-d2vk9n`.
