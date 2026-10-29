@@ -45,7 +45,7 @@
       <td>{{ e.arquivo_nome }}</td>
       <td>{{ e.criado_em | data }}</td>
       <td><span class="selo {{ e.status }}">{{ STATUS.get(e.status, e.status) }}</span></td>
-      <td class="suave">{% if e.tipo == "turmas" and e.mensagem %}{{ e.mensagem.splitlines()[0] }}{% elif e.status in ("concluido", "concluido_com_falhas") %}{{ e.sucesso }} de {{ e.total }}{% elif e.status == "falhou" %}{{ e.mensagem[:80] }}{% else %}{{ e.total }} registro(s){% endif %}</td>
+      <td class="suave">{% if e.tipo in ("turmas", "consulta") and e.mensagem %}{{ e.mensagem.splitlines()[0] }}{% elif e.status in ("concluido", "concluido_com_falhas") %}{{ e.sucesso }} de {{ e.total }}{% elif e.status == "falhou" %}{{ e.mensagem[:80] }}{% else %}{{ e.total }} registro(s){% endif %}</td>
     </tr>
     {% endfor %}
   </table></div>

@@ -35,12 +35,13 @@ no `README.md`.
 | Tela da turma no celular (abas Alunos / Conteúdo / Lançar notas, modo aluno por aluno), no modelo do app oficial do SIGEduc | pronta e testada |
 | SIGEduc só leitura (`APISIGEDUC_SIGEDUC_SOMENTE_LEITURA`, padrão ligado) | pronta: fila, carga pelo robô e CLI de lançamento recusam |
 | Telas do SIGEduc de lançar notas, frequência e conteúdo | **capturadas** (cópia local fora do repositório; estrutura descrita abaixo) |
+| Consulta (só leitura) das notas dos 4 bimestres, faltas e % de frequência (tela "Lançar Notas") | pronta e testada contra cópia falsa e contra o HTML real capturado; **falta rodar no SIGEduc real**. `tarefas/consulta.py`, `consultas_sigeduc.py`, envio tipo `consulta`, `apisigeduc consultar`, página `/turmas/{id}/sigeduc` |
 
 ## Próximos passos
 
-1. **Consultar e trazer do SIGEduc (só leitura)** as notas já lançadas, a frequência e o
-   conteúdo das aulas, para comparar com o APISIGEduc. Estrutura das telas (capturadas em
-   29/10/2026):
+1. **Consultar e trazer do SIGEduc (só leitura)**: notas e frequência total já feitas
+   (tela "Lançar Notas"); faltam a frequência por dia e o conteúdo das aulas. Estrutura das
+   telas (capturadas em 29/10/2026):
    - Lançar notas (`/sigeduc/diario_classe/lancar_notas/form_estudantes_notas.jsf`): tabela
      `formulario:notaEstudante`, linha N com `formulario:notaEstudante:N:nota1..nota4`
      (valor com ponto, "5.0"), `idMatriculaComponente` oculto, faltas e %freq. **Sem matrícula

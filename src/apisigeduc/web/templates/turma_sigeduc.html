@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block titulo %}SIGEduc {{ turma.codigo }}{% endblock %}
+{% block conteudo %}
+{% set c = comparacao %}
+<div class="cartao">
+  <p class="suave trilha"><a href="/turmas/{{ turma.id }}#notas">{{ turma.componente }} · {{ turma.codigo }}</a></p>
+  <h1>No SIGEduc</h1>
+  {% if c.consulta %}
+  <p class="suave" style="margin:0">O que está lançado no SIGEduc, consultado em {{ c.consulta.consultado_em|data }}
+    {%- if c.consulta.aulas_dadas is not none %} · {{ c.consulta.aulas_dadas }} de {{ c.consulta.aulas_previstas }} aulas dadas{% endif %}.
+    A consulta só lê; nada é alterado no SIGEduc.</p>
+  {% if c.divergencias %}
+  <p class="alerta" style="margin:12px 0 0"><span aria-hidden="true">▲ </span><strong>{{ c.divergencias }} média(s) diferente(s)</strong>
+    entre o APISIGEduc{% if c.ano %} ({{ c.ano }}){% endif %} e o SIGEduc, marcadas na tabela. Embaixo da nota do SIGEduc aparece a média calculada aqui.</p>
+  {% elif c.ano %}
+  <p style="margin:12px 0 0">As médias calculadas aqui ({{ c.ano }}) que já estão no SIGEduc são iguais.</p>
+  {% endif %}
+  {% if c.faltando %}
+  <p class="suave" style="margin:8px 0 0">{{ c.faltando }} média(s) calculada(s) aqui ainda sem nota no SIGEduc (aparecem como "aqui: …" abaixo do traço).</p>
+  {% endif %}
+  {% else %}
+  <p>Esta turma ainda não foi consultada. Em <a href="/turmas">Turmas</a>, use <strong>Consultar notas e frequência no SIGEduc</strong>.</p>
+  {% endif %}
+</div>
+
+{% if c.linhas %}
+<div class="cartao">
+  <div class="tabela"><table class="sigeduc">
+    <caption class="sr">Notas e frequência no SIGEduc</caption>
+    <thead><tr><th scope="col">Estudante</th>{% for b in range(1, 5) %}<th scope="col">{{ b }}º B</th>{% endfor %}
+      <th scope="col">Média anual</th><th scope="col">Faltas</th><th scope="col">Frequência</th></tr></thead>
+    <tbody>
+    {% for l in c.linhas %}
+    <tr class="{{ 'inativo' if not l.ativo }}">
+      <td>{% if l.matricula %}<a href="/alunos/{{ l.matricula }}">{{ l.nome }}</a>{% else %}{{ l.nome }}{% endif %}
+        {% if not l.ativo %}<br><span class="suave">saiu da turma</span>{% elif not l.matricula %}<br><span class="suave">nome não encontrado na lista da turma</span>{% endif %}</td>
+      {% for s in l.sigeduc %}{% set diferente = l.ativo and l.diferentes[loop.index0] %}{% set falta = l.ativo and l.faltando[loop.index0] %}
+      <td class="num {{ 'diferente' if diferente }} {{ 'abaixo-media' if s is not none and s < media_minima }}">
+        {{ s|nota if s is not none else "—" }}{% if diferente or falta %}<span class="aqui">aqui: {{ l.aqui[loop.index0]|nota }}</span>{% endif %}</td>
+      {% endfor %}
+      <td class="num">{{ l.media_anual|nota if l.media_anual is not none else "—" }}</td>
+      <td class="num">{{ l.faltas if l.faltas is not none else "—" }}</td>
+      <td class="num {{ 'abaixo' if l.frequencia is not none and l.frequencia < 75 }}">{{ (l.frequencia|nota ~ "%") if l.frequencia is not none else "—" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="suave">Média anual do RN: (1º + 2º + 3º + 4º bimestre) ÷ 4, só com os quatro lançados. Frequência mínima: 75%.</p>
+</div>
+{% endif %}
+{% endblock %}

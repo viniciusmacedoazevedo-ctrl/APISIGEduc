@@ -26,7 +26,13 @@ def _executores() -> dict[str, Callable]:
     from .tarefas.notas import lancar_notas
     from .tarefas.turmas import sincronizar
 
-    return {"notas": lancar_notas, "frequencia": lancar_frequencia, "turmas": sincronizar}
+    from .tarefas.consulta import consultar
+
+    return {"notas": lancar_notas, "frequencia": lancar_frequencia, "turmas": sincronizar, "consulta": consultar}
+
+
+# envios que gravariam no SIGEduc (bloqueados enquanto ele for só consultado)
+TIPOS_QUE_GRAVAM = {"notas", "frequencia"}
 
 
 def validar(tipo: str, nome: str, dados: bytes):
@@ -49,17 +55,26 @@ def criar(sessoes: sessionmaker, usuario_id: int, tipo: str, nome: str, dados: b
 def pedir_sincronizacao(sessoes: sessionmaker, usuario_id: int) -> tuple[int, bool]:
     """Põe na fila a busca de turmas e estudantes. Se já houver uma pendente,
     devolve ela. Retorna (id do envio, criado agora?)."""
+    return _pedir_busca(sessoes, usuario_id, "turmas", "Portal do Professor")
+
+
+def pedir_consulta(sessoes: sessionmaker, usuario_id: int) -> tuple[int, bool]:
+    """Põe na fila a consulta (só leitura) das notas e da frequência lançadas no SIGEduc."""
+    return _pedir_busca(sessoes, usuario_id, "consulta", "Notas e frequência no SIGEduc")
+
+
+def _pedir_busca(sessoes: sessionmaker, usuario_id: int, tipo: str, descricao: str) -> tuple[int, bool]:
     with sessoes.begin() as sessao:
         existente = sessao.scalar(
             select(Envio.id).where(
                 Envio.usuario_id == usuario_id,
-                Envio.tipo == "turmas",
+                Envio.tipo == tipo,
                 Envio.status.in_(("pendente", "processando")),
             )
         )
         if existente:
             return existente, False
-        envio = Envio(usuario_id=usuario_id, tipo="turmas", arquivo_nome="Portal do Professor", arquivo=b"")
+        envio = Envio(usuario_id=usuario_id, tipo=tipo, arquivo_nome=descricao, arquivo=b"")
         sessao.add(envio)
         sessao.flush()
         return envio.id, True
@@ -118,7 +133,7 @@ def processar_proximo(
     if envio is None:
         return False
     log.info("Processando envio %d (%s, %s)", envio.id, envio.tipo, envio.arquivo_nome)
-    if envio.tipo != "turmas" and config.sigeduc_somente_leitura:
+    if envio.tipo in TIPOS_QUE_GRAVAM and config.sigeduc_somente_leitura:
         from .config import SOMENTE_LEITURA
 
         _finalizar(sessoes, envio.id, status="falhou", mensagem=SOMENTE_LEITURA)
@@ -131,6 +146,9 @@ def processar_proximo(
     try:
         if envio.tipo == "turmas":
             _sincronizar_turmas(sessoes, repo, config, envio, abrir_cliente, executores["turmas"])
+            return True
+        if envio.tipo == "consulta":
+            _consultar_sigeduc(sessoes, repo, config, envio, abrir_cliente, executores["consulta"])
             return True
         leitura = validar(envio.tipo, envio.arquivo_nome, envio.arquivo)
         credencial = repo.credencial(envio.usuario_id)
@@ -169,6 +187,31 @@ def _sincronizar_turmas(sessoes, repo, config, envio, abrir_cliente, sincronizar
         mensagem="\n".join(
             [f"{n_turmas} turma(s) encontrada(s), {n_estudantes} estudante(s) importado(s)", *relatorio.avisos]
         ),
+    )
+
+
+def _consultar_sigeduc(sessoes, repo, config, envio, abrir_cliente, consultar) -> None:
+    from . import consultas_sigeduc
+
+    credencial = repo.credencial(envio.usuario_id)
+    with abrir_cliente(config, credencial) as cliente:
+        cliente.login()
+        resultados, relatorio = consultar(cliente)
+    n_turmas, n_linhas, sem_matricula = consultas_sigeduc.salvar(sessoes, envio.usuario_id, resultados)
+    avisos = []
+    nao_importadas = sum(1 for _, notas in resultados if notas is not None) - n_turmas
+    if nao_importadas:
+        avisos.append(f"{nao_importadas} turma(s) ainda não importada(s): busque as turmas e consulte de novo")
+    if sem_matricula:
+        avisos.append(f"{sem_matricula} estudante(s) do SIGEduc sem nome igual na lista da turma")
+    _finalizar(
+        sessoes,
+        envio.id,
+        status="concluido_com_falhas" if relatorio.falhas else "concluido",
+        total=len(resultados),
+        sucesso=n_turmas,
+        falhas="\n".join(relatorio.falhas),
+        mensagem="\n".join([f"{n_turmas} turma(s) consultada(s), {n_linhas} estudante(s) lido(s)", *avisos]),
     )
 
 

@@ -29,7 +29,7 @@
   <input type="search" id="busca-aluno" class="busca" placeholder="Buscar pelo nome ou matrícula" autocomplete="off">
   <div class="lista-com-indice">
     <ul class="lista-alunos" id="lista-alunos">
-      {% for e in estudantes %}{% set f = frequencia.get(e.matricula) %}
+      {% for e in estudantes %}{% set f = percentuais.get(e.matricula) %}
       <li data-busca="{{ (e.nome ~ ' ' ~ e.matricula)|lower }}"{% if e.matricula in ancoras %} id="letra-{{ ancoras[e.matricula] }}"{% endif %}>
         <a href="/alunos/{{ e.matricula }}" class="linha-aluno">
           {{ ft.foto(e.matricula, e.nome, e.matricula in com_foto) }}
@@ -38,7 +38,7 @@
             <span class="suave">Matrícula {{ e.matricula }}</span>
             {% if marcados.get(e.matricula) %}<span class="sinal-importante"><span aria-hidden="true">!</span> observação importante</span>{% endif %}
           </span>
-          {% if f and f.percentual is not none %}<span class="freq num {{ 'abaixo' if f.abaixo_do_minimo }}" title="Frequência">{{ f.percentual|nota }}%</span>{% endif %}
+          {% if f %}<span class="freq num {{ 'abaixo' if f[1] }}" title="Frequência{{ ' no SIGEduc' if f[2] }}">{{ f[0]|nota }}%{% if f[2] %}<small class="origem">SIGEduc</small>{% endif %}</span>{% endif %}
         </a>
       </li>
       {% endfor %}
@@ -98,6 +98,18 @@
 {# --- lançar notas --------------------------------------------------------------- #}
 <section class="cartao painel-aba" id="notas" role="tabpanel" aria-labelledby="aba-notas">
   <h2 class="sr">Lançar notas</h2>
+  {% if comparacao and comparacao.consulta %}
+  <a class="cartao-sigeduc {{ 'pendencia' if comparacao.divergencias or comparacao.nao_reconhecidos }}" href="/turmas/{{ turma.id }}/sigeduc">
+    <span class="dados">
+      <strong>No SIGEduc</strong>
+      <span class="suave">Consultado em {{ comparacao.consulta.consultado_em|data }}</span>
+      {% if comparacao.divergencias %}<span class="pendente-texto"><span aria-hidden="true">▲ </span>{{ comparacao.divergencias }} média(s) diferente(s) do SIGEduc</span>
+      {% else %}<span>Médias iguais às do SIGEduc</span>{% endif %}
+      {% if comparacao.faltando %}<span class="suave">{{ comparacao.faltando }} média(s) daqui ainda sem nota no SIGEduc</span>{% endif %}
+    </span>
+    <span aria-hidden="true" class="seta">›</span>
+  </a>
+  {% endif %}
   {% if notas %}
   <ul class="lista-composicoes">
     {% for n in notas %}

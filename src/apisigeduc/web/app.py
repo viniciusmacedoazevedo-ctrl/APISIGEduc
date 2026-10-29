@@ -42,7 +42,7 @@ STATUS = {
     "falhou": "Falhou",
 }
 TIPOS_PLANILHA = {"notas": "Notas", "frequencia": "Frequência"}
-TIPOS = {**TIPOS_PLANILHA, "turmas": "Importar turmas"}
+TIPOS = {**TIPOS_PLANILHA, "turmas": "Importar turmas", "consulta": "Consultar notas e frequência"}
 BIMESTRES = {1: "1º bimestre", 2: "2º bimestre", 3: "3º bimestre", 4: "4º bimestre"}
 CALCULO_NOMES = {"soma": "soma", "media": "média"}
 
@@ -285,7 +285,7 @@ def criar_app(
         lista = turmas_repo.listar(sessoes, None if usuario.admin else usuario.id)
         pendentes = [
             e for e in envios.listar(sessoes, usuario.id, limite=5)
-            if e.tipo == "turmas" and e.status in ("pendente", "processando")
+            if e.tipo in ("turmas", "consulta") and e.status in ("pendente", "processando")
         ]
         nomes = {u.id: u.nome or u.email for u in repo.listar()} if usuario.admin else {}
         return pagina(
@@ -312,6 +312,33 @@ def criar_app(
             avisar(request, f"Já existe uma busca em andamento (nº {envio_id}).", "erro")
         return voltar("/turmas")
 
+    @app.post("/turmas/consultar")
+    def consultar_sigeduc(request: Request, csrf_token: str = Form(""), usuario: Usuario = Depends(usuario_logado)):
+        verificar_csrf(request, csrf_token)
+        if repo.dados_credencial(usuario.id) is None:
+            avisar(request, "Cadastre sua senha do SIGEduc antes de consultar.", "erro")
+            return voltar("/credencial")
+        envio_id, criado = envios.pedir_consulta(sessoes, usuario.id)
+        if criado:
+            avisar(request, f"Consulta das notas e da frequência no SIGEduc na fila (nº {envio_id}). Nada é alterado no SIGEduc.")
+        else:
+            avisar(request, f"Já existe uma consulta em andamento (nº {envio_id}).", "erro")
+        return voltar("/turmas")
+
+    @app.get("/turmas/{turma_id}/sigeduc", response_class=HTMLResponse)
+    def turma_no_sigeduc(request: Request, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
+        from .. import consultas_sigeduc
+
+        turma = turma_permitida(turma_id, usuario)
+        return pagina(
+            request,
+            "turma_sigeduc.html",
+            usuario,
+            turma=turma,
+            comparacao=consultas_sigeduc.comparar(sessoes, turma),
+            media_minima=config.media_minima,
+        )
+
     @app.get("/turmas/{turma_id}", response_class=HTMLResponse)
     def detalhe_turma(request: Request, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
         """Tela da turma (pensada para o celular): resumo, chamada e as abas Alunos,
@@ -321,9 +348,20 @@ def criar_app(
         from .. import composicoes as comp
         from .. import diario
 
+        from .. import consultas_sigeduc
+
         turma = turma_permitida(turma_id, usuario)
         estudantes = turmas_repo.estudantes(sessoes, turma.id)
         frequencia = diario.frequencia_da_turma(sessoes, turma.id)
+        no_sigeduc = consultas_sigeduc.por_matricula(sessoes, turma.id)
+        # frequência: a das chamadas feitas aqui; sem chamadas, a consultada no SIGEduc
+        percentuais = {}
+        for e in estudantes:
+            f, s = frequencia.get(e.matricula), no_sigeduc.get(e.matricula)
+            if f and f.percentual is not None:
+                percentuais[e.matricula] = (f.percentual, f.abaixo_do_minimo, "")
+            elif s and s.frequencia is not None:
+                percentuais[e.matricula] = (s.frequencia, s.frequencia < diario.FREQUENCIA_MINIMA, "SIGEduc")
         inicios = diario.inicios_dos_bimestres(config.bimestres)
         hoje = date.today()
 
@@ -365,7 +403,9 @@ def criar_app(
             aulas=aulas,
             aulas_dadas=sum(a.aula.quantidade for a in aulas),
             bimestre_atual=diario.bimestre_da_data(hoje, inicios),
-            abaixo=sum(1 for f in frequencia.values() if f.abaixo_do_minimo),
+            abaixo=sum(1 for _, baixo, _ in percentuais.values() if baixo),
+            percentuais=percentuais,
+            comparacao=consultas_sigeduc.comparar(sessoes, turma) if no_sigeduc or consultas_sigeduc.ultima_consulta(sessoes, turma.id) else None,
             notas=notas,
             hoje=hoje,
         )

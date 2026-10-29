@@ -6,15 +6,25 @@
   <p class="suave">Busca no Portal do Professor as turmas (escola, etapa, ano/série, componente) e,
     em cada turma, o nome e a matrícula dos estudantes.</p>
   {% if pendente %}
-    <div class="alerta">Busca em andamento ({{ STATUS.get(pendente.status) }}). A página se atualiza
+    <div class="alerta">{{ "Consulta" if pendente.tipo == "consulta" else "Busca" }} em andamento ({{ STATUS.get(pendente.status) }}). A página se atualiza
       sozinha. <a href="/envios/{{ pendente.id }}">Acompanhar</a></div>
   {% elif not credencial %}
     <div class="alerta">Cadastre sua <a href="/credencial">senha do SIGEduc</a> para buscar as turmas.</div>
   {% else %}
-    <form method="post" action="/turmas/sincronizar">
-      <input type="hidden" name="csrf_token" value="{{ csrf }}">
-      <button class="botao">{{ "Atualizar" if turmas else "Buscar" }} turmas e estudantes no SIGEduc</button>
-    </form>
+    <div class="botoes">
+      <form method="post" action="/turmas/sincronizar" style="margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <button class="botao">{{ "Atualizar" if turmas else "Buscar" }} turmas e estudantes no SIGEduc</button>
+      </form>
+      {% if turmas %}
+      <form method="post" action="/turmas/consultar" style="margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <button class="botao secundario">Consultar notas e frequência no SIGEduc</button>
+      </form>
+      {% endif %}
+    </div>
+    <p class="suave">A consulta só lê o que já está lançado no SIGEduc (notas dos 4 bimestres, faltas e
+      frequência) para comparar com o APISIGEduc. Nada é alterado no SIGEduc.</p>
   {% endif %}
 </div>
 

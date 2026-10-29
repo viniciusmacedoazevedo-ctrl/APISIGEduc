@@ -23,6 +23,7 @@ pessoa faria.
 | Composição de notas do bimestre (itens, nota para todos, média) e envio das médias | pronta e testada |
 | Login no SIGEduc | funcionando; a verificação humana é resolvida por uma pessoa |
 | Tela da turma no celular: abas Alunos (busca e A–Z), Conteúdo (aulas por bimestre) e Lançar notas (lista ou aluno por aluno) | pronta e testada |
+| Consultar no SIGEduc (só leitura) as notas dos 4 bimestres, faltas e % de frequência e comparar com as médias daqui | pronta e testada; falta rodar no SIGEduc real |
 | Acesso ao SIGEduc | **só consulta** (`APISIGEDUC_SIGEDUC_SOMENTE_LEITURA=true`): o robô não grava nem apaga nada no SIGEduc |
 
 ## Como funciona
@@ -156,6 +157,14 @@ Em cada turma dá para baixar a lista de estudantes e **modelos de planilha de n
 frequência** já preenchidos com matrícula, nome, turma e componente.
 
 Pelo terminal: `apisigeduc turmas --usuario seu@email.com`.
+
+**Consultar notas e frequência no SIGEduc** (botão em **Turmas**, ou
+`apisigeduc consultar --usuario seu@email.com`): em cada turma, abre **Lançar Notas** na
+Escola Digital e **só lê** a tabela: notas do 1º ao 4º bimestre, faltas e % de frequência.
+Não preenche nada e não clica em Gravar. A tela do SIGEduc não mostra a matrícula; o
+estudante é reconhecido pelo nome. Na turma, **Lançar notas > No SIGEduc** compara com as
+médias calculadas aqui: em amarelo as diferentes, e indica as que ainda não estão no
+SIGEduc. Sem chamadas feitas aqui, a lista de alunos mostra a frequência do SIGEduc.
 
 **Tela da turma** (pensada para o celular, abre também sem internet): resumo (alunos, aulas
 dadas, bimestre, quantos estão abaixo de 75%), botão **Fazer a chamada** e três abas:

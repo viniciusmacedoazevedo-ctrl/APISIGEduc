@@ -333,3 +333,18 @@ input.busca { margin-bottom: 8px; }
 #grade.modo-aluno .grade-notas tr.atual .foto-aluno { width: 72px; height: 72px; font-size: 28px; }
 #grade.modo-aluno .grade-notas tr.atual input.nota { width: 96px; min-height: 52px; font-size: 22px; }
 #grade.modo-aluno .grade-notas tr.atual td.media { font-size: 22px; }
+
+/* --- notas e frequência consultadas no SIGEduc --- */
+.freq .origem { display: block; font-size: 11px; font-weight: 400; color: var(--grafite); text-align: right; }
+.cartao-sigeduc { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 12px; border: 1px solid var(--pauta);
+  border-radius: 8px; color: inherit; text-decoration: none; }
+.cartao-sigeduc.pendencia { background: var(--giz-claro); border-color: var(--giz); }
+.cartao-sigeduc .dados { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.cartao-sigeduc .seta { font-size: 28px; color: var(--quadro); }
+table.sigeduc td, table.sigeduc th { text-align: center; white-space: nowrap; }
+table.sigeduc td:first-child, table.sigeduc th:first-child { text-align: left; white-space: normal; min-width: 180px; }
+table.sigeduc td.diferente { background: var(--giz-claro); color: var(--giz-texto); font-weight: 700; }
+table.sigeduc td .aqui { display: block; font-size: 12px; font-weight: 400; color: var(--grafite); }
+table.sigeduc td.diferente .aqui { color: inherit; }
+table.sigeduc tr.inativo td { color: var(--grafite); text-decoration: line-through; }
+table.sigeduc td.abaixo-media { font-weight: 700; }

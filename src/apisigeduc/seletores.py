@@ -70,3 +70,10 @@ TURMA_ESTUDANTES = "a:text-is('Estudantes')"
 TURMA_MENU = "a:text-is('Turmas'), :text-is('Turmas')"
 # Indica que a lista de estudantes carregou (cartões com "Matrícula: 000...").
 TURMA_LISTA_ESTUDANTES = "text=/Matr[ií]cula\\s*:?\\s*\\d{4,}/"
+
+# --- Consulta (só leitura) das notas e frequência já lançadas -----------------
+# Item do menu lateral da Escola Digital da turma. Abre a tela "Lançar Notas", que o
+# robô só LÊ: nunca preenche campos nem clica em Gravar.
+TURMA_LANCAR_NOTAS = "a:has-text('Lançar Notas')"
+# Tabela com uma linha por estudante: nota1..nota4, faltas e % de frequência.
+CONSULTA_TABELA_NOTAS = "table[id$='notaEstudante']"

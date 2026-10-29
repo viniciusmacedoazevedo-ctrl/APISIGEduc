@@ -151,6 +151,29 @@ def cmd_turmas(args) -> int:
     return 0 if not relatorio.falhas else 2
 
 
+def cmd_consultar(args) -> int:
+    """Lê (sem alterar nada) as notas e a frequência lançadas no SIGEduc."""
+    from . import consultas_sigeduc
+    from .cliente import SigeducCliente
+    from .tarefas.consulta import consultar
+
+    config, sessoes, repo = _contexto()
+    usuario = repo.por_email(args.usuario)
+    with SigeducCliente(config, repo.credencial(usuario.id)) as cliente:
+        cliente.login()
+        resultados, relatorio = consultar(cliente)
+    n_turmas, n_linhas, sem_matricula = consultas_sigeduc.salvar(sessoes, usuario.id, resultados)
+    for turma, notas in resultados:
+        lidos = "falhou" if notas is None else f"{len(notas.linhas)} estudante(s)"
+        print(f"{turma.codigo:<8} {turma.componente:<20} {lidos}")
+    for falha in relatorio.falhas:
+        log.warning(falha)
+    if sem_matricula:
+        print(f"{sem_matricula} estudante(s) do SIGEduc sem nome igual na lista da turma.")
+    print(f"{n_turmas} turma(s) consultada(s), {n_linhas} estudante(s) gravados no banco.")
+    return 0 if not relatorio.falhas else 2
+
+
 def cmd_login(args) -> int:
     with _cliente(args.usuario) as cliente:
         cliente.login()
@@ -264,6 +287,7 @@ def criar_parser() -> argparse.ArgumentParser:
 
     for nome, func, ajuda in (
         ("turmas", cmd_turmas, "busca turmas e estudantes no Portal do Professor"),
+        ("consultar", cmd_consultar, "lê (sem alterar) as notas e a frequência lançadas no SIGEduc"),
         ("login", cmd_login, "testa o login no SIGEduc de um usuário"),
         ("mapear", cmd_mapear, "abre o SIGEduc logado com o Playwright Inspector"),
         ("capturar", cmd_capturar, "salva imagem e HTML das telas do SIGEduc que você abrir"),

@@ -275,6 +275,37 @@ class EntregaItem(Base):
     envio_id: Mapped[int | None] = mapped_column(ForeignKey("envios.id"), nullable=True)  # modo sigeduc
 
 
+class ConsultaSigeduc(Base):
+    """Última consulta (só leitura) da tela de notas do SIGEduc de uma turma."""
+
+    __tablename__ = "consultas_sigeduc"
+
+    turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), primary_key=True)
+    aulas_dadas: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    aulas_previstas: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    consultado_em: Mapped[datetime] = mapped_column(DateTime)
+
+
+class NotaSigeduc(Base):
+    """O que está lançado no SIGEduc para o estudante: notas do 1º ao 4º bimestre,
+    faltas e % de frequência. A tela do SIGEduc não mostra a matrícula; ela vem do
+    nome, quando bate com um único estudante da turma."""
+
+    __tablename__ = "notas_sigeduc"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
+    matricula: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    nome: Mapped[str] = mapped_column(String(300))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    nota1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    nota2: Mapped[float | None] = mapped_column(Float, nullable=True)
+    nota3: Mapped[float | None] = mapped_column(Float, nullable=True)
+    nota4: Mapped[float | None] = mapped_column(Float, nullable=True)
+    faltas: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    frequencia: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
 def normalizar_url(url: str) -> str:
     # "postgresql://" usaria o driver psycopg2; o projeto usa o psycopg 3.
     if url.startswith("postgresql://") or url.startswith("postgres://"):
