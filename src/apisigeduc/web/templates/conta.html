@@ -4,6 +4,11 @@
 <div class="cartao estreito" style="margin-top:0">
   <h1>Minha conta</h1>
   <p class="suave">{{ usuario.nome }} · {{ usuario.email }}{% if usuario.admin %} · administrador{% endif %}</p>
+  <div class="botoes" style="margin:4px 0 20px">
+    <a class="botao secundario" href="/credencial">Senha do SIGEduc</a>
+    {% if usuario.admin %}<a class="botao secundario" href="/admin/usuarios">Usuários</a>{% endif %}
+    <form method="post" action="/sair" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="botao secundario">Sair</button></form>
+  </div>
   <h2>Trocar senha de acesso</h2>
   <form method="post" action="/conta/senha">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">

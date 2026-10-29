@@ -2,65 +2,98 @@
 {% block titulo %}Notas {{ turma.codigo }}{% endblock %}
 {% block conteudo %}
 <div class="cartao">
-  <h1>{{ turma.codigo }} · {{ turma.componente }} — {{ composicao.nome }}</h1>
-  <p class="suave">{{ turma.codigo | descrever_turma }} · {{ turma.escola }}<br>
-    {{ BIMESTRES[composicao.bimestre] }} de {{ composicao.ano_letivo }} ·
-    {{ completos }} de {{ linhas|length }} estudante(s) com todas as notas</p>
-  <div class="suave">{% for linha in estrutura.formula() %}<div>{{ linha }}</div>{% endfor %}</div>
-  <p><a href="/notas/{{ composicao.id }}">← Voltar à composição</a></p>
+  <p class="suave" style="margin:0 0 4px"><a href="/notas/{{ composicao.id }}">{{ composicao.nome }}</a></p>
+  <h1>{{ turma.codigo }} {{ turma.componente }}</h1>
+  <p class="suave" style="margin:0 0 10px">{{ turma.codigo | descrever_turma }}, {{ turma.escola }}</p>
+  <details class="formula suave">
+    <summary>Como a média é calculada</summary>
+    {% for linha in estrutura.formula() %}<div>{{ linha }}</div>{% endfor %}
+  </details>
 </div>
 
 <form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}" class="cartao" id="grade">
   <input type="hidden" name="csrf_token" value="{{ csrf }}">
   {% if linhas %}
-  <div class="tabela"><table>
+  {# celular: modo chamada, uma avaliação por vez, aluno por aluno #}
+  <div class="chamada" aria-label="Escolha a avaliação">
+    <div class="avaliacoes" role="group">
+      {% for a in estrutura.avaliacoes %}
+      <button type="button" data-escolher="{{ a.id }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ a.nome }} <span class="suave">({{ a.valor_maximo|num }})</span></button>
+      {% endfor %}
+    </div>
+    <div class="todos">
+      <span>Mesma nota para todos:</span>
+      <input type="text" class="nota" inputmode="decimal" enterkeyhint="done" data-todos-movel aria-label="Mesma nota para todos nesta avaliação">
+      <button type="button" class="botao secundario pequeno" data-aplicar-todos>Aplicar</button>
+    </div>
+  </div>
+
+  <div class="tabela"><table class="grade-notas">
+    <thead>
     <tr>
       <th rowspan="2">Estudante</th>
       {% for g in estrutura.grupos %}
       {% set varias = g.avaliacoes|length > 1 %}
-      <th colspan="{{ g.avaliacoes|length + (1 if varias else 0) }}" style="text-align:center;border-left:2px solid var(--borda)">
-        {{ g.grupo.nome }} <span class="suave">· vale {{ g.grupo.valor|num }}{% if varias %} · {{ CALCULO_NOMES[g.grupo.calculo] }}{% endif %}</span></th>
+      <th colspan="{{ g.avaliacoes|length + (1 if varias else 0) }}" class="col-grupo" style="text-align:center">
+        {{ g.grupo.nome }}<br><span class="suave">vale {{ g.grupo.valor|num }}{% if varias %}, {{ CALCULO_NOMES[g.grupo.calculo] }}{% endif %}</span></th>
       {% endfor %}
-      <th rowspan="2" style="text-align:center;border-left:2px solid var(--borda)">Média</th>
+      <th rowspan="2" class="col-grupo" style="text-align:center">Média</th>
     </tr>
     <tr>
       {% for g in estrutura.grupos %}
       {% set varias = g.avaliacoes|length > 1 %}
       {% for a in g.avaliacoes %}
-      <th style="text-align:center;{{ 'border-left:2px solid var(--borda)' if loop.first }}">{% if varias %}{{ a.nome }}<br>{% endif %}<span class="suave">vale {{ a.valor_maximo|num }}</span><br>
-        <input type="text" class="nota" inputmode="decimal" placeholder="todos" data-todos="{{ a.id }}" title="Digite e aperte Enter para dar a mesma nota a todos">
+      <th style="text-align:center" class="{{ 'col-grupo' if loop.first }}">{% if varias %}{{ a.nome }}<br>{% endif %}<span class="suave">vale {{ a.valor_maximo|num }}</span><br>
+        <input type="text" class="nota" inputmode="decimal" placeholder="todos" data-todos="{{ a.id }}" aria-label="Mesma nota para todos em {{ a.nome }}" title="Digite e aperte Enter para dar a mesma nota a todos">
       </th>
       {% endfor %}
       {% if varias %}<th style="text-align:center" class="suave">nota do<br>grupo</th>{% endif %}
       {% endfor %}
     </tr>
+    </thead>
+    <tbody>
     {% for l in linhas %}
-    <tr>
-      <td>{{ l.nome }}<br><span class="suave">{{ l.matricula }}</span></td>
+    <tr class="{{ 'pendente' if l.media is none }}">
+      <td class="aluno">{{ l.nome }}<br><span class="suave">{{ l.matricula }}</span></td>
       {% for g in estrutura.grupos %}
       {% for a in g.avaliacoes %}
-      <td style="text-align:center;{{ 'border-left:2px solid var(--borda)' if loop.first }}"><input type="text" class="nota" inputmode="decimal" name="n_{{ a.id }}_{{ l.matricula }}"
-          value="{{ l.notas.get(a.id)|num }}" data-item="{{ a.id }}" data-max="{{ a.valor_maximo }}"></td>
+      <td style="text-align:center" class="{{ 'col-grupo' if loop.first }}" data-coluna="{{ a.id }}"><input type="text" class="nota" inputmode="decimal" enterkeyhint="next" name="n_{{ a.id }}_{{ l.matricula }}"
+          value="{{ l.notas.get(a.id)|num }}" data-item="{{ a.id }}" data-max="{{ a.valor_maximo }}" aria-label="{{ a.nome }} de {{ l.nome }}"></td>
       {% endfor %}
       {% if g.avaliacoes|length > 1 %}
       {% set parcial = l.grupos.get(g.grupo.id) %}
       <td class="media vazia" data-grupo="{{ g.grupo.id }}">{{ (parcial|round(2))|num if parcial is not none else "—" }}</td>
       {% endif %}
       {% endfor %}
-      <td class="media {{ 'vazia' if l.media is none }}" data-media style="border-left:2px solid var(--borda)">{{ l.media|num if l.media is not none else "—" }}</td>
+      <td class="media col-grupo {{ 'vazia' if l.media is none }}" data-media aria-label="Média">{{ l.media|num if l.media is not none else "—" }}</td>
     </tr>
     {% endfor %}
+    </tbody>
   </table></div>
-  <div class="barra-acoes botoes" style="margin-top:0">
+  <div class="barra-acoes">
     <button class="botao">Salvar notas</button>
-    <span class="suave" style="align-self:center">Na linha "todos", digite uma nota e aperte Enter para preencher a coluna inteira.</span>
+    <span class="suave" id="progresso">{{ completos }} de {{ linhas|length }} com média</span>
   </div>
   {% else %}
-  <p class="suave">Esta turma não tem estudantes importados. <a href="/turmas">Buscar turmas no SIGEduc</a>.</p>
+  <p>Esta turma ainda não tem estudantes. <a href="/turmas">Buscar turmas e estudantes no SIGEduc</a>.</p>
   {% endif %}
 </form>
 
 {% if linhas %}
+<div class="cartao">
+  <h2>Preencher no Excel</h2>
+  <p class="suave">Baixe a planilha desta turma, preencha as células amarelas (a média é calculada no próprio Excel)
+    e importe de volta. Células em branco não apagam notas já lançadas.</p>
+  <div class="botoes" style="margin-top:8px">
+    <a class="botao secundario" href="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/planilha.xlsx">Baixar planilha (Excel)</a>
+  </div>
+  <form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/importar" enctype="multipart/form-data" class="linha" style="margin-top:12px">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <input type="file" name="arquivo" accept=".xlsx" required aria-label="Planilha preenchida" style="max-width:340px">
+    <button class="botao secundario">Importar planilha</button>
+  </form>
+</div>
+
 <div class="cartao">
   <h2>Enviar médias ao SIGEduc</h2>
   <p class="suave">Salve as notas antes. As médias entram na fila de lançamento com o seu login do SIGEduc.</p>
@@ -78,12 +111,18 @@
 {% endif %}
 
 <script>
+(() => {
   const regras = {{ regras | tojson }};
+  const grade = document.getElementById('grade');
+  if (!grade.querySelector('.grade-notas')) return;
   const numero = (t) => { t = (t || '').trim().replace(',', '.'); return t === '' ? null : Number(t); };
   const arred = (v, casas = 1) => Math.round((v + Number.EPSILON) * 10 ** casas) / 10 ** casas;
   const combinar = (calculo, partes, total) => calculo === 'media'
     ? partes.reduce((t, [n, max]) => t + n / max, 0) / partes.length * total
     : partes.reduce((t, [n]) => t + n, 0);
+  const progresso = document.getElementById('progresso');
+  const linhas = [...grade.querySelectorAll('tbody tr')];
+
   function recalcular(tr) {
     const notas = {};
     let validas = true;
@@ -91,6 +130,7 @@
       const v = numero(c.value), max = Number(c.dataset.max);
       const invalida = v !== null && (isNaN(v) || v < 0 || v > max);
       c.classList.toggle('invalida', invalida);
+      c.setAttribute('aria-invalid', invalida);
       if (v !== null && !invalida) notas[c.dataset.item] = [v, max];
       if (invalida) validas = false;
     });
@@ -105,14 +145,55 @@
     const ok = validas && parciais.every(Boolean);
     celula.textContent = ok ? arred(Math.min(combinar(regras.calculo, parciais, 10), 10)).toLocaleString('pt-BR') : '—';
     celula.classList.toggle('vazia', !ok);
+    tr.classList.toggle('pendente', !ok);
+    progresso.textContent = `${linhas.filter((l) => !l.classList.contains('pendente')).length} de ${linhas.length} com média`;
   }
-  const grade = document.getElementById('grade');
+  const preencherColuna = (id, valor) =>
+    grade.querySelectorAll(`input[data-item="${id}"]`).forEach((c) => { c.value = valor; recalcular(c.closest('tr')); });
+
   grade.addEventListener('input', (e) => { if (e.target.dataset.item) recalcular(e.target.closest('tr')); });
+
+  // Enter (ou "próximo" no teclado do celular) desce para o próximo aluno, como na chamada
+  grade.addEventListener('keydown', (e) => {
+    const campo = e.target;
+    if (e.key !== 'Enter' || !campo.dataset.item) return;
+    e.preventDefault();
+    const proximo = linhas[linhas.indexOf(campo.closest('tr')) + 1];
+    const alvo = proximo && proximo.querySelector(`input[data-item="${campo.dataset.item}"]`);
+    if (alvo) { alvo.focus(); alvo.select(); } else { campo.blur(); }
+  });
+
+  // computador: linha "todos" de cada coluna
   grade.querySelectorAll('input[data-todos]').forEach((t) => t.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    grade.querySelectorAll(`input[data-item="${t.dataset.todos}"]`).forEach((c) => { c.value = t.value; recalcular(c.closest('tr')); });
+    preencherColuna(t.dataset.todos, t.value);
     t.value = '';
   }));
+
+  // celular: modo chamada, mostra só a avaliação escolhida
+  let ativa = regras.grupos[0].avaliacoes[0];
+  function escolher(id) {
+    ativa = Number(id);
+    grade.querySelectorAll('[data-escolher]').forEach((b) => b.setAttribute('aria-pressed', Number(b.dataset.escolher) === ativa));
+    grade.querySelectorAll('td[data-coluna]').forEach((td) => td.classList.toggle('oculta-movel', Number(td.dataset.coluna) !== ativa));
+    grade.querySelectorAll('td[data-grupo]').forEach((td) => td.classList.add('oculta-movel'));
+  }
+  grade.querySelectorAll('[data-escolher]').forEach((b) => b.addEventListener('click', () => escolher(b.dataset.escolher)));
+  const todosMovel = grade.querySelector('[data-todos-movel]');
+  grade.querySelector('[data-aplicar-todos]').addEventListener('click', () => {
+    if (numero(todosMovel.value) === null) return todosMovel.focus();
+    preencherColuna(ativa, todosMovel.value);
+    todosMovel.value = '';
+  });
+  todosMovel.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); grade.querySelector('[data-aplicar-todos]').click(); } });
+  escolher(ativa);
+
+  // aviso antes de sair com notas não salvas
+  let alterado = false;
+  grade.addEventListener('input', () => { alterado = true; });
+  grade.addEventListener('submit', () => { alterado = false; });
+  window.addEventListener('beforeunload', (e) => { if (alterado) { e.preventDefault(); e.returnValue = ''; } });
+})();
 </script>
 {% endblock %}

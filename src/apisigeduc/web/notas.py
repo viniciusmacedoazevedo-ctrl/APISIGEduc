@@ -7,11 +7,12 @@ import json
 from datetime import date
 from types import SimpleNamespace
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 
 from .. import composicoes as comp
 from .. import envios
+from .. import planilha_notas
 from .. import turmas as turmas_repo
 from ..banco import Usuario
 
@@ -248,6 +249,39 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": f'attachment; filename="medias-{turma.codigo}-{composicao.bimestre}bim.csv"'},
         )
+
+    @app.get("/notas/{composicao_id}/turmas/{turma_id}/planilha.xlsx")
+    def baixar_planilha(composicao_id: int, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
+        estrutura, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        dados = planilha_notas.exportar(estrutura, turma, comp.planilha(sessoes, composicao_id, turma_id))
+        return Response(
+            dados,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="notas-{turma.codigo}-{estrutura.composicao.bimestre}bim.xlsx"'},
+        )
+
+    @app.post("/notas/{composicao_id}/turmas/{turma_id}/importar")
+    async def importar_planilha(
+        request: Request,
+        composicao_id: int,
+        turma_id: int,
+        arquivo: UploadFile = File(...),
+        csrf_token: str = Form(""),
+        usuario: Usuario = Depends(usuario_logado),
+    ):
+        verificar_csrf(request, csrf_token)
+        estrutura, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        destino = f"/notas/{composicao_id}/turmas/{turma_id}"
+        try:
+            valores = planilha_notas.importar(estrutura, turma, await arquivo.read(envios.TAMANHO_MAXIMO + 1))
+        except planilha_notas.PlanilhaInvalida as e:
+            avisar(request, str(e), "erro")
+            return voltar(destino)
+        erros = comp.salvar_notas(sessoes, composicao_id, turma_id, valores)
+        for erro in erros:
+            avisar(request, erro, "erro")
+        avisar(request, f"Planilha importada: {len(valores) - len(erros)} nota(s) gravada(s).")
+        return voltar(destino)
 
     @app.post("/notas/{composicao_id}/turmas/{turma_id}/enviar")
     def enviar_medias(

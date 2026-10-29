@@ -131,7 +131,7 @@ def test_turmas_na_web(app, sessoes, repo):
 
     cliente = _entrar(app, "prof@escola.br", "senha-prof")
     r = cliente.get("/turmas")
-    assert "EFV6A" in r.text and "Vespertino" in r.text and "portal: 2" in r.text
+    assert "EFV6A" in r.text and "vespertino" in r.text and "portal: 2" in r.text
     assert "Cadastre sua" in r.text  # sem senha do SIGEduc, sem botão de busca
 
     r = cliente.get(f"/turmas/{turma.id}")
@@ -153,3 +153,17 @@ def test_turmas_na_web(app, sessoes, repo):
     outro = _entrar(app, "outro@escola.br", "senha-outro")
     assert outro.get(f"/turmas/{turma.id}").status_code == 404
     assert outro.get(f"/turmas/{turma.id}/estudantes.csv").status_code == 404
+
+
+def test_app_instalavel(app):
+    cliente = TestClient(app)
+    manifesto = cliente.get("/static/manifest.webmanifest").json()
+    assert manifesto["display"] == "standalone" and manifesto["start_url"] == "/"
+    assert {i["sizes"] for i in manifesto["icons"]} >= {"192x192", "512x512"}
+    for icone in manifesto["icons"]:
+        assert cliente.get(icone["src"]).status_code == 200
+    sw = cliente.get("/sw.js")
+    assert sw.headers["content-type"].startswith("application/javascript")
+    assert cliente.get("/static/offline.html").status_code == 200
+    pagina = cliente.get("/login").text
+    assert 'rel="manifest"' in pagina and "apple-touch-icon" in pagina and "serviceWorker" in pagina

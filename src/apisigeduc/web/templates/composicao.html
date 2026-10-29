@@ -7,7 +7,7 @@
   <div style="background:#f7f8fa;border-radius:8px;padding:10px 14px">
     {% for linha in estrutura.formula() %}<div>{{ linha }}</div>{% endfor %}
   </div>
-  {% for aviso in estrutura.avisos() %}<p class="suave" style="color:var(--amarelo)">⚠ {{ aviso }}</p>{% endfor %}
+  {% for aviso in estrutura.avisos() %}<p class="suave" style="color:var(--giz-texto)">⚠ {{ aviso }}</p>{% endfor %}
 
   <div class="tabela" style="margin-top:12px"><table>
     <tr><th>Grupo</th><th>Vale</th><th>Avaliação</th><th>Vale</th><th>Nota para todos</th><th></th></tr>
@@ -23,9 +23,9 @@
         <td>{{ a.nota_padrao|num or "—" }}</td>
         <td>
           <form method="post" action="/notas/{{ composicao.id }}/avaliacoes/{{ a.id }}/remover" style="margin:0"
-                onsubmit="return confirm('Remover {{ a.nome }} e as notas lançadas nela?')">
+                data-confirmar="Remover {{ a.nome }} e as notas lançadas nela em todas as turmas?">
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <button class="remover" title="Remover avaliação" style="background:none;border:0;color:var(--vermelho);cursor:pointer">✕</button>
+            <button class="remover" aria-label="Remover {{ a.nome }}" title="Remover avaliação">✕</button>
           </form>
         </td>
       </tr>
@@ -37,10 +37,10 @@
   <p class="suave">Ex.: o Trabalho 3 decidido no meio do mês. Se tiver nota para todos, ela já é lançada nas turmas.</p>
   <form class="linha" method="post" action="/notas/{{ composicao.id }}/avaliacoes">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <select name="grupo_id">{% for g in estrutura.grupos %}<option value="{{ g.grupo.id }}">{{ g.grupo.nome }}</option>{% endfor %}</select>
-    <input type="text" name="nome" required placeholder="Nome (ex.: Trabalho 3)" style="min-width:200px">
-    <input type="text" name="valor" required placeholder="Vale" inputmode="decimal" style="width:90px">
-    <input type="text" name="padrao" placeholder="Nota p/ todos" inputmode="decimal" style="width:120px">
+    <select name="grupo_id" aria-label="Grupo">{% for g in estrutura.grupos %}<option value="{{ g.grupo.id }}">{{ g.grupo.nome }}</option>{% endfor %}</select>
+    <input type="text" name="nome" required placeholder="Ex.: Trabalho 3…" aria-label="Nome da avaliação" style="min-width:200px">
+    <input type="text" name="valor" required placeholder="Vale…" aria-label="Quanto vale" inputmode="decimal" style="width:90px">
+    <input type="text" name="padrao" placeholder="Nota p/ todos…" aria-label="Nota para todos (opcional)" inputmode="decimal" style="width:120px">
     <button class="botao secundario">Incluir</button>
   </form>
 </div>
@@ -85,14 +85,14 @@
   <h2>Usar em outro bimestre</h2>
   <form class="linha" method="post" action="/notas/{{ composicao.id }}/duplicar">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <input type="text" name="nome" required placeholder="Nome da cópia" value="{{ composicao.nome }} (cópia)" style="min-width:260px">
-    <select name="bimestre">{% for n, rotulo in BIMESTRES.items() %}<option value="{{ n }}" {{ "selected" if n == composicao.bimestre }}>{{ rotulo }}</option>{% endfor %}</select>
+    <input type="text" name="nome" required placeholder="Nome da cópia…" aria-label="Nome da cópia" value="{{ composicao.nome }} (cópia)" style="min-width:260px">
+    <select name="bimestre" aria-label="Bimestre da cópia">{% for n, rotulo in BIMESTRES.items() %}<option value="{{ n }}" {{ "selected" if n == composicao.bimestre }}>{{ rotulo }}</option>{% endfor %}</select>
     <button class="botao secundario">Copiar composição</button>
   </form>
   <form method="post" action="/notas/{{ composicao.id }}/excluir" style="margin-top:16px"
-        onsubmit="return confirm('Excluir a composição e todas as notas lançadas nela?')">
+        data-confirmar="Excluir a composição e todas as notas lançadas nela?">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <button class="botao secundario pequeno" style="color:var(--vermelho)!important;border-color:var(--vermelho)">Excluir composição</button>
+    <button class="botao secundario pequeno" style="color:var(--caneta)!important;border-color:var(--caneta)">Excluir composição</button>
   </form>
 </div>
 {% endblock %}

@@ -34,7 +34,7 @@
         </form>
         <form class="linha" method="post" action="/admin/usuarios/{{ u.id }}/senha" style="margin-top:6px">
           <input type="hidden" name="csrf_token" value="{{ csrf }}">
-          <input type="password" name="senha" placeholder="Nova senha" required minlength="8" autocomplete="new-password">
+          <input type="password" name="senha" placeholder="Nova senha…" aria-label="Nova senha" required minlength="8" autocomplete="new-password">
           <button class="botao secundario pequeno">Redefinir</button>
         </form>
       </td>

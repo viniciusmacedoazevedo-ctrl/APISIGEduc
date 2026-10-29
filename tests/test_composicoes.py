@@ -286,3 +286,48 @@ def test_fluxo_web(config, sessoes, repo, cenario):
     # incluir avaliação pela tela: Prova passa a ter duas partes? não cabe (soma 5 de 5)
     r = cliente.post(f"/notas/{cid}/avaliacoes", data={"grupo_id": str(comp.obter(sessoes, cid).grupos[2].grupo.id), "nome": "Prova 2", "valor": "1", "csrf_token": csrf})
     assert "mais que os 5 do grupo" in r.text
+
+
+def test_planilha_excel_ida_e_volta(config, sessoes, repo, cenario):
+    from openpyxl import load_workbook
+    import io
+
+    from apisigeduc import planilha_notas
+
+    prof, turmas = cenario
+    grupos = [G("Trabalho", 4, "soma", [A("Trabalho 1", 2), A("Trabalho 2", 2)]), G("Prova", 6, avaliacoes=[A("Prova", 6)])]
+    cid = _composicao(sessoes, prof, "soma", grupos)
+    turma = turmas["EFV6A"]
+    comp.aplicar(sessoes, cid, [turma.id, turmas["EFM6B"].id])
+    t1, t2, prova = comp.obter(sessoes, cid).avaliacoes
+
+    app = criar_app(config, sessoes, repo, iniciar_worker=False)
+    cliente = TestClient(app)
+    cliente.post("/login", data={"email": "prof@escola.br", "senha": "senha-prof", "csrf_token": _csrf(cliente, "/login")})
+    r = cliente.get(f"/notas/{cid}/turmas/{turma.id}/planilha.xlsx")
+    assert r.headers["content-type"].startswith("application/vnd.openxmlformats")
+
+    # professor preenche no Excel: notas do Ivan, Wesley só o Trabalho 1, e uma nota acima do valor
+    wb = load_workbook(io.BytesIO(r.content))
+    ws = wb[planilha_notas.ABA_NOTAS]
+    assert ws.protection.sheet and ws.cell(planilha_notas.PRIMEIRA_LINHA, 3).protection.locked is False
+    linhas = {str(ws.cell(rr, 1).value): rr for rr in range(planilha_notas.PRIMEIRA_LINHA, ws.max_row + 1)}
+    ivan, wesley = linhas["202630270867"], linhas["202630441436"]
+    ws.cell(ivan, 3, 2); ws.cell(ivan, 4, 1.5); ws.cell(ivan, 6, 5.5)
+    ws.cell(wesley, 3, "1,5"); ws.cell(wesley, 6, 7)
+    assert ws.cell(ivan, 7).value.startswith("=IF(COUNT(C")  # média é fórmula
+    saida = io.BytesIO(); wb.save(saida)
+
+    csrf = _csrf(cliente, f"/notas/{cid}/turmas/{turma.id}")
+    r = cliente.post(f"/notas/{cid}/turmas/{turma.id}/importar", data={"csrf_token": csrf}, files={"arquivo": ("notas.xlsx", saida.getvalue())})
+    assert "WESLEY VARELA PEREIRA DA SILVA — Prova: deve ficar entre 0 e 6" in r.text
+    por_aluno = {l.matricula: l for l in comp.planilha(sessoes, cid, turma.id)}
+    assert por_aluno["202630270867"].media == 9.0
+    assert por_aluno["202630441436"].notas == {t1.id: 1.5}
+
+    # planilha de outra turma é recusada
+    outra = cliente.get(f"/notas/{cid}/turmas/{turmas['EFM6B'].id}/planilha.xlsx").content
+    r = cliente.post(f"/notas/{cid}/turmas/{turma.id}/importar", data={"csrf_token": csrf}, files={"arquivo": ("x.xlsx", outra)})
+    assert "é de outra turma ou composição (turma EFM6B)" in r.text
+    r = cliente.post(f"/notas/{cid}/turmas/{turma.id}/importar", data={"csrf_token": csrf}, files={"arquivo": ("x.xlsx", b"nao e excel")})
+    assert "não é uma planilha Excel" in r.text

@@ -45,8 +45,8 @@ ESTUDANTES = "<h2>Estudantes (3)</h2><table><tr>" + "".join(
 
 
 def test_descrever_turma():
-    assert descrever_turma("EFV6A") == "Ensino Fundamental · Vespertino · 6º ano A"
-    assert descrever_turma("EFM6B") == "Ensino Fundamental · Matutino · 6º ano B"
+    assert descrever_turma("EFV6A") == "Ensino Fundamental, vespertino, 6º ano A"
+    assert descrever_turma("EFM6B") == "Ensino Fundamental, matutino, 6º ano B"
     assert descrever_turma("qualquer") == ""
 
 

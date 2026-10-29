@@ -32,7 +32,7 @@ apisigeduc = "apisigeduc.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-apisigeduc = ["web/templates/*.html"]
+apisigeduc = ["web/templates/*.html", "web/static/*", "web/static/icones/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

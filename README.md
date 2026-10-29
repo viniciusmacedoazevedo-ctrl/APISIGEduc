@@ -101,6 +101,21 @@ Para usar a fila da tela web nesse caso, rode o `apisigeduc web` com
 `SIGEDUC_HEADLESS=false` no computador onde alguém possa resolver a verificação quando a
 janela abrir.
 
+## Celular (Android e iPhone)
+
+A tela web é um **aplicativo instalável (PWA)**: no Chrome (Android), menu ⋮ >
+**Instalar app**; no Safari (iPhone), botão Compartilhar > **Adicionar à Tela de Início**.
+Ele abre em tela cheia, com ícone próprio e a barra de navegação embaixo.
+
+No celular, a tela de notas usa o **modo chamada**: escolha a avaliação no topo e desça a
+lista digitando a nota de cada aluno; o botão "próximo" do teclado pula para o aluno
+seguinte, e a média aparece ao lado. O ponto amarelo marca quem ainda está sem média.
+
+Notas e dados de alunos **não ficam guardados no aparelho**: sem conexão aparece uma página
+avisando. Para a instalação completa (e o funcionamento do service worker) fora do próprio
+computador, o sistema precisa estar em **HTTPS** (ex.: atrás de um proxy com certificado);
+pelo IP da rede local (`http://192.168.x.x`), o "Adicionar à tela inicial" cria só um atalho.
+
 ## Uso pela tela web
 
 1. **Senha do SIGEduc:** cada pessoa cadastra o próprio login e senha do SIGEduc.
@@ -169,6 +184,14 @@ tela mostra a fórmula por extenso e avisa quando faltam pontos (ex.: Trabalho c
 
 As notas ficam ligadas à turma e à matrícula, então continuam valendo depois de
 **Atualizar turmas** a partir do SIGEduc.
+
+### Preencher no Excel
+
+Na tela de notas de cada turma, **Baixar planilha (Excel)** gera a grade da turma: células
+amarelas para as notas e a nota de cada grupo e a média como **fórmulas do Excel** (mesma
+regra e mesmo arredondamento do sistema). O Excel recusa nota acima do valor da avaliação e
+as fórmulas ficam protegidas. Depois, **Importar planilha** grava as notas; células em
+branco não apagam notas já lançadas, e a planilha de outra turma é recusada.
 
 ### Formato das planilhas
 
@@ -245,7 +268,9 @@ src/apisigeduc/
   envios.py       fila de planilhas e worker
   turmas.py       turmas e estudantes importados
   composicoes.py  composição das notas (grupos e avaliações) e cálculo da média
-  web/            tela web (FastAPI + modelos HTML); web/notas.py: telas de notas
+  planilha_notas.py  exportar/importar a grade de notas em Excel (.xlsx)
+  web/            tela web (FastAPI + modelos HTML); web/notas.py: telas de notas;
+                  web/static: estilo, ícones, manifesto e service worker (PWA)
   cliente.py      sessão do navegador e login no SIGEduc
   seletores.py    seletores das telas (único arquivo a ajustar se o layout mudar)
   modelos.py      Nota, Frequencia e suas validações

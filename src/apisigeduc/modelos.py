@@ -57,17 +57,17 @@ def extrair_codigo_turma(texto: str) -> str:
 
 
 def descrever_turma(codigo: str) -> str:
-    """EFV6A -> 'Ensino Fundamental · Vespertino · 6º ano A'. Vazio se não reconhecer."""
+    """EFV6A -> 'Ensino Fundamental, vespertino, 6º ano A'. Vazio se não reconhecer."""
     achado = CODIGO_TURMA.fullmatch(codigo.upper())
     if not achado:
         return ""
     modalidade, turno, serie, letra = achado.groups()
     partes = [
         MODALIDADES.get(modalidade, modalidade),
-        TURNOS.get(turno, f"turno {turno}"),
+        TURNOS.get(turno, f"turno {turno}").lower(),
         f"{serie}º ano {letra}",
     ]
-    return " · ".join(partes)
+    return ", ".join(partes)
 
 
 @dataclass(frozen=True)

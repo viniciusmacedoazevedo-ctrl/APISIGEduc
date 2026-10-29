@@ -15,7 +15,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
@@ -42,7 +43,8 @@ TIPOS = {**TIPOS_PLANILHA, "turmas": "Importar turmas"}
 BIMESTRES = {1: "1º bimestre", 2: "2º bimestre", 3: "3º bimestre", 4: "4º bimestre"}
 CALCULO_NOMES = {"soma": "soma", "media": "média"}
 
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+PASTA_WEB = Path(__file__).parent
+templates = Jinja2Templates(directory=PASTA_WEB / "templates")
 templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else "—"
 templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA, BIMESTRES=BIMESTRES, CALCULO_NOMES=CALCULO_NOMES)
 templates.env.filters["num"] = lambda v: "" if v is None else f"{v:g}".replace(".", ",")
@@ -146,6 +148,16 @@ def criar_app(
     def voltar(caminho: str) -> RedirectResponse:
         return RedirectResponse(caminho, status_code=303)
 
+    # --- app instalável (PWA) ---------------------------------------------------
+    app.mount("/static", StaticFiles(directory=PASTA_WEB / "static"), name="static")
+
+    @app.get("/sw.js", include_in_schema=False)
+    def service_worker():
+        # servido na raiz para controlar o app inteiro; sem cache para atualizar logo
+        return FileResponse(
+            PASTA_WEB / "static" / "sw.js", media_type="application/javascript", headers={"Cache-Control": "no-cache"}
+        )
+
     # --- login --------------------------------------------------------------
     @app.get("/saude", response_class=PlainTextResponse)
     def saude():
@@ -160,7 +172,7 @@ def criar_app(
         verificar_csrf(request, csrf_token)
         usuario = repo.autenticar(email, senha)
         if usuario is None:
-            avisar(request, "E-mail ou senha incorretos.", "erro")
+            avisar(request, "E-mail ou senha incorretos. Confira e tente de novo; se esqueceu a senha, peça ao administrador para redefini-la.", "erro")
             return voltar("/login")
         request.session.clear()
         request.session["usuario_id"] = usuario.id
