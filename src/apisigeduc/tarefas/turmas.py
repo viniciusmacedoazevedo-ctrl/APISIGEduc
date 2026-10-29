@@ -55,25 +55,90 @@ _JS_TABELAS = """
 # Cartões de estudante: cada elemento mais interno com "Matrícula: 123" e, subindo,
 # o maior bloco que contém só essa matrícula (o cartão). O nome é a primeira linha
 # do cartão que não é um rótulo (Matrícula, Usuário, E-mail).
+#
+# Foto: as imagens só carregam quando aparecem na tela (ou ficam em data-src), por
+# isso cada cartão é rolado até a tela e as imagens recebem o endereço real antes de
+# esperar o carregamento. A maior imagem do cartão (a outra é o ícone pequeno ao lado
+# do nome) é redesenhada em JPEG pequeno pelo próprio navegador ("dados"); se o
+# navegador não permitir, fica só o endereço para baixar depois ("foto").
 _JS_CARTOES = """
-() => {
+async (lado) => {
   const padrao = /Matr[ií]cula\\s*:?\\s*(\\d{4,})/i;
   const contar = (t) => (t.match(/Matr[ií]cula\\s*:?\\s*\\d{4,}/gi) || []).length;
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
   const internos = Array.from(document.body.querySelectorAll('*')).filter((el) =>
     padrao.test(el.innerText || '') &&
     !Array.from(el.children).some((f) => padrao.test(f.innerText || '')));
-  return internos.map((el) => {
+  const cartoes = internos.map((el) => {
     let cartao = el;
     while (cartao.parentElement && contar(cartao.parentElement.innerText || '') === 1) cartao = cartao.parentElement;
+    return { el, cartao };
+  });
+  const enderecoReal = (img) => {
+    for (const a of ['data-src', 'data-original', 'data-lazy-src', 'data-url', 'lazy-src']) {
+      const v = img.getAttribute(a);
+      if (v && !/^data:/.test(v)) return v;
+    }
+    return '';
+  };
+  const imagens = [];
+  for (const { cartao } of cartoes) {
+    cartao.scrollIntoView({ block: 'center' });
+    for (const img of cartao.querySelectorAll('img')) {
+      img.loading = 'eager';
+      const real = enderecoReal(img);
+      if (real && img.getAttribute('src') !== real) img.setAttribute('src', real);
+      imagens.push(img);
+    }
+    await esperar(20);
+  }
+  const carregada = (img) => img.complete && img.naturalWidth > 0;
+  const prazo = Date.now() + 20000;
+  while (Date.now() < prazo && imagens.some((img) => img.getAttribute('src') && !img.complete)) await esperar(200);
+  window.scrollTo(0, 0);
+
+  const fundo = (cartao) => {
+    for (const el of [cartao, ...cartao.querySelectorAll('*')]) {
+      const m = getComputedStyle(el).backgroundImage.match(/url\\(["']?(https?:[^"')]+)/);
+      const r = el.getBoundingClientRect();
+      if (m && r.width >= 30 && r.height >= 30) return m[1];
+    }
+    return '';
+  };
+  return cartoes.map(({ el, cartao }) => {
     const linhas = (cartao.innerText || '').split('\\n').map((l) => l.replace(/^[\\s•·●○◦-]+/, '').trim()).filter(Boolean);
     const nome = linhas.find((l) => !/^(matr[ií]cula|usu[aá]rio|e-?mail)\\b/i.test(l)) || '';
-    // foto: a maior imagem do cartão (a outra é o ícone pequeno ao lado do nome)
-    const imagens = Array.from(cartao.querySelectorAll('img')).map((img) => {
-      const r = img.getBoundingClientRect();
-      return { src: img.currentSrc || img.src || '', area: r.width * r.height };
-    }).filter((i) => /^https?:/.test(i.src)).sort((a, b) => b.area - a.area);
-    const foto = imagens.length && imagens[0].area >= 900 ? imagens[0].src : '';
-    return { matricula: (el.innerText.match(padrao) || [])[1] || '', nome, foto };
+    const matricula = (el.innerText.match(padrao) || [])[1] || '';
+    const todas = Array.from(cartao.querySelectorAll('img'));
+    const candidatas = todas.filter((img) => carregada(img) && img.naturalWidth >= 30 && img.naturalHeight >= 30)
+      .map((img) => {
+        const r = img.getBoundingClientRect();
+        return { img, area: (r.width * r.height) || (img.naturalWidth * img.naturalHeight) };
+      }).sort((a, b) => b.area - a.area);
+    let foto = '', dados = '', situacao = 'sem imagem';
+    if (candidatas.length && candidatas[0].area >= 900) {
+      const img = candidatas[0].img;
+      foto = img.currentSrc || img.src || '';
+      situacao = 'ok';
+      try {
+        const escala = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * escala));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * escala));
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        dados = canvas.toDataURL('image/jpeg', 0.85);
+      } catch (e) { dados = ''; }  // imagem de outro endereço: baixar pelo Python
+    } else if (todas.some((img) => img.getAttribute('src') && img.complete && !img.naturalWidth)) {
+      situacao = 'imagem quebrada';
+    } else {
+      foto = fundo(cartao);
+      if (foto) situacao = 'ok';
+    }
+    if (!/^https?:/.test(foto)) foto = '';
+    return { matricula, nome, foto, dados, situacao };
   });
 }
 """
@@ -148,17 +213,36 @@ def turmas_da_tabela(tabelas: list[list[list[str]]]) -> list[TurmaPortal]:
     return turmas
 
 
+def _foto_dos_dados(dados_url: str) -> bytes | None:
+    """Imagem que o navegador devolveu como data:image/jpeg;base64,..."""
+    import base64
+
+    if not dados_url or "," not in dados_url:
+        return None
+    try:
+        dados = base64.b64decode(dados_url.split(",", 1)[1], validate=True)
+    except ValueError:
+        return None
+    return dados if _tipo_imagem(dados) and len(dados) <= FOTO_TAMANHO_MAXIMO else None
+
+
 def estudantes_dos_cartoes(cartoes: list[dict]) -> list[Estudante]:
     vistos: dict[str, Estudante] = {}
     for cartao in cartoes:
         nome = re.sub(r"\s+", " ", cartao.get("nome", "")).strip()
         matricula = cartao.get("matricula", "")
         if matricula and nome and matricula not in vistos:
-            vistos[matricula] = Estudante(matricula=matricula, nome=nome, foto_url=cartao.get("foto", "") or "")
+            foto = _foto_dos_dados(cartao.get("dados", "") or "")
+            vistos[matricula] = Estudante(
+                matricula=matricula, nome=nome, foto_url=cartao.get("foto", "") or "",
+                foto=foto, foto_tipo=_tipo_imagem(foto) if foto else "",
+            )
     return list(vistos.values())
 
 
-FOTO_TAMANHO_MAXIMO = 400 * 1024
+# lado maior da foto redesenhada no navegador (px) e limites de tamanho
+FOTO_LADO = 320
+FOTO_TAMANHO_MAXIMO = 3 * 1024 * 1024
 
 
 def impressao(dados: bytes) -> str:
@@ -208,6 +292,8 @@ class LeitorPortal:
     def __init__(self, cliente: SigeducCliente):
         self.cliente = cliente
         self.page = cliente.page
+        self.fotos: dict[str, str] = {}  # matrícula -> com_foto, silhueta, sem_imagem, quebrada, nao_baixada
+        self.silhuetas: set[str] = set()  # impressões da imagem padrão já reconhecidas
         self._url_portal: str | None = None
 
     def tabelas(self) -> list[list[list[str]]]:
@@ -304,16 +390,20 @@ class LeitorPortal:
         Falha ao baixar não impede a leitura do estudante."""
         from dataclasses import replace
 
-        if not estudante.foto_url:
+        if estudante.foto or not estudante.foto_url:
             return estudante
         try:
-            resposta = pagina.request.get(estudante.foto_url, timeout=15000)
+            resposta = pagina.request.get(estudante.foto_url, timeout=20000)
             dados = resposta.body() if resposta.ok else b""
-        except Exception:
-            log.debug("Falha ao baixar a foto de %s", estudante.matricula, exc_info=True)
+            if not resposta.ok:
+                log.info("Foto de %s: o SIGEduc respondeu %s", estudante.matricula, resposta.status)
+        except Exception as e:
+            log.info("Foto de %s não baixada: %s", estudante.matricula, e)
             return estudante
         tipo = _tipo_imagem(dados)  # confere o conteúdo, não o que o servidor diz
         if not tipo or len(dados) > FOTO_TAMANHO_MAXIMO:
+            if dados:
+                log.info("Foto de %s ignorada (%s, %d bytes)", estudante.matricula, tipo or "não é imagem", len(dados))
             return estudante
         return replace(estudante, foto=dados, foto_tipo=tipo)
 
@@ -323,10 +413,30 @@ class LeitorPortal:
             self._clicar_estudantes(pagina, turma)
             self._esperar(pagina, S.TURMA_LISTA_ESTUDANTES, f"A lista de estudantes da turma {turma.codigo}")
             pagina.wait_for_timeout(500)  # termina de desenhar os cartões
-            estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES))
+            cartoes = pagina.evaluate(_JS_CARTOES, FOTO_LADO)
+            estudantes = estudantes_dos_cartoes(cartoes)
             if not estudantes:  # layout em tabela
                 estudantes = estudantes_da_tabela(pagina.evaluate(_JS_TABELAS))
-            return descartar_fotos_padrao([self._baixar_foto(pagina, e) for e in estudantes])
+            baixadas = [self._baixar_foto(pagina, e) for e in estudantes]
+            finais = descartar_fotos_padrao(baixadas)
+            self.silhuetas |= {impressao(a.foto) for a, b in zip(baixadas, finais) if a.foto and not b.foto}
+            quebradas = {c.get("matricula") for c in cartoes if c.get("situacao") == "imagem quebrada"}
+            for antes, depois in zip(baixadas, finais):
+                if depois.foto:
+                    situacao = "com_foto"
+                elif antes.foto:
+                    situacao = "silhueta"
+                elif antes.foto_url:
+                    situacao = "nao_baixada"
+                else:
+                    situacao = "quebrada" if antes.matricula in quebradas else "sem_imagem"
+                # quem está em mais de uma turma fica com o melhor resultado
+                if self.fotos.get(antes.matricula) != "com_foto":
+                    self.fotos[antes.matricula] = situacao
+            log.info(
+                "%s: %d de %d estudante(s) com foto", turma.codigo, sum(1 for e in finais if e.foto), len(finais)
+            )
+            return finais
         finally:
             if pagina is not self.page:
                 pagina.close()
@@ -344,7 +454,7 @@ def sincronizar(cliente: SigeducCliente) -> tuple[list, Relatorio]:
             estudantes = leitor.listar_estudantes(turma)
             log.info("%s / %s: %d estudante(s)", turma.codigo, turma.componente, len(estudantes))
             if turma.qtd_estudantes is not None and turma.qtd_estudantes != len(estudantes):
-                relatorio.falhas.append(
+                relatorio.avisos.append(
                     f"{turma.codigo}/{turma.componente}: o portal informa {turma.qtd_estudantes} "
                     f"estudante(s), mas {len(estudantes)} foram lidos"
                 )
@@ -357,11 +467,30 @@ def sincronizar(cliente: SigeducCliente) -> tuple[list, Relatorio]:
         cliente.pausa()
     # silhueta repetida entre turmas diferentes também é descartada
     todos = descartar_fotos_padrao([e for _, lista in resultados if lista for e in lista])
-    sem_foto = {e.matricula for e in todos if not e.foto}
+    sem_foto = {e.matricula for e in todos if not e.foto or impressao(e.foto) in leitor.silhuetas}
     from dataclasses import replace as _replace
 
     resultados = [
         (t, None if lista is None else [_replace(e, foto=None, foto_tipo="") if e.matricula in sem_foto and e.foto else e for e in lista])
         for t, lista in resultados
     ]
+    for matricula in sem_foto:
+        if leitor.fotos.get(matricula) == "com_foto":
+            leitor.fotos[matricula] = "silhueta"
+    relatorio.avisos.insert(0, resumo_fotos(leitor.fotos))
     return resultados, relatorio
+
+
+def resumo_fotos(situacoes: dict[str, str]) -> str:
+    """Uma linha para o professor entender quantas fotos vieram e por que faltam."""
+    total = lambda situacao: sum(1 for s in situacoes.values() if s == situacao)  # noqa: E731
+    partes = [f"Fotos: {total('com_foto')} de {len(situacoes)} estudante(s)"]
+    for situacao, texto in (
+        ("silhueta", "com a imagem padrão do SIGEduc (sem foto cadastrada)"),
+        ("sem_imagem", "sem imagem no cartão"),
+        ("quebrada", "com imagem que não abriu no SIGEduc"),
+        ("nao_baixada", "com foto que não foi possível baixar"),
+    ):
+        if total(situacao):
+            partes.append(f"{total(situacao)} {texto}")
+    return "; ".join(partes)

@@ -15,7 +15,7 @@
     {% else %}
     <tr><th>Lançados</th><td>{{ envio.sucesso }} de {{ envio.total }}</td></tr>
     {% endif %}
-    {% if envio.mensagem %}<tr><th>Mensagem</th><td>{{ envio.mensagem }}</td></tr>{% endif %}
+    {% if envio.mensagem %}<tr><th>Mensagem</th><td style="white-space: pre-line">{{ envio.mensagem }}</td></tr>{% endif %}
   </table></div>
   {% if envio.falhas %}<h2 style="margin-top:20px">Falhas</h2><pre>{{ envio.falhas }}</pre>{% endif %}
   {% if atualizar %}<p class="suave">Esta página se atualiza sozinha a cada 10 segundos.</p>{% endif %}

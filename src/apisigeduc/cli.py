@@ -145,6 +145,8 @@ def cmd_turmas(args) -> int:
         print(f"{turma.codigo:<8} {turma.componente:<20} {lidos:<16} {descrever_turma(turma.codigo)} · {turma.escola}")
     for falha in relatorio.falhas:
         log.warning(falha)
+    for aviso in relatorio.avisos:
+        print(aviso)
     print(f"{n_turmas} turma(s), {n_estudantes} estudante(s) gravados no banco.")
     return 0 if not relatorio.falhas else 2
 

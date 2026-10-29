@@ -161,7 +161,9 @@ def _sincronizar_turmas(sessoes, repo, config, envio, abrir_cliente, sincronizar
         total=n_turmas,
         sucesso=lidas,
         falhas="\n".join(relatorio.falhas),
-        mensagem=f"{n_turmas} turma(s) encontrada(s), {n_estudantes} estudante(s) importado(s)",
+        mensagem="\n".join(
+            [f"{n_turmas} turma(s) encontrada(s), {n_estudantes} estudante(s) importado(s)", *relatorio.avisos]
+        ),
     )
 
 

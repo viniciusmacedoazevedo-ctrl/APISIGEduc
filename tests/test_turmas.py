@@ -10,7 +10,10 @@ from apisigeduc.tarefas.base import Relatorio
 from apisigeduc.tarefas.turmas import (
     _JS_CARTOES,
     _JS_TABELAS,
+    FOTO_LADO,
+    _tipo_imagem,
     estudantes_dos_cartoes,
+    resumo_fotos,
     turmas_da_tabela,
 )
 
@@ -90,7 +93,7 @@ def test_leitura_no_navegador():
         assert [(t.codigo, t.qtd_estudantes, t.ano_serie) for t in turmas] == [("EFV6A", 36, "6º ANO"), ("EFM6A", 38, "6º ANO")]
 
         pagina.set_content('<meta charset="utf-8">' + ESTUDANTES)
-        estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES))
+        estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES, FOTO_LADO))
         assert estudantes == [
             Estudante("202600000001", "ANA CLARA SOUZA LIMA"),
             Estudante("202600000002", "BRUNO HENRIQUE COSTA DA SILVA"),
@@ -152,6 +155,7 @@ def test_sincronizacao_pela_fila(repo, sessoes, config):
     assert envio.status == "concluido_com_falhas"
     assert (envio.total, envio.sucesso) == (2, 1)
     assert envio.mensagem == "2 turma(s) encontrada(s), 1 estudante(s) importado(s)"
+    assert envio.falhas == "EFM6A/História: falhou"
     assert len(turmas_repo.listar(sessoes, u.id)) == 2
 
 
@@ -211,3 +215,72 @@ def test_foto_so_para_professores_do_aluno(config, sessoes, repo):
     assert 'src="/alunos/1/foto"' in prof.get("/alunos/1").text
     assert entrar("outro@escola.br", "senha-outro").get("/alunos/1/foto").status_code == 404
     assert TestClient(app).get("/alunos/1/foto", follow_redirects=False).status_code == 303
+
+
+def _png(largura, altura, semente):
+    """PNG válido com pixels variados (cada semente dá uma foto diferente)."""
+    import random
+    import struct
+    import zlib
+
+    aleatorio = random.Random(semente)
+    linhas = b"".join(b"\x00" + bytes(aleatorio.getrandbits(8) for _ in range(largura * 3)) for _ in range(altura))
+
+    def bloco(tipo, dados):
+        return struct.pack(">I", len(dados)) + tipo + dados + struct.pack(">I", zlib.crc32(tipo + dados))
+
+    cabecalho = struct.pack(">IIBBBBB", largura, altura, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + bloco(b"IHDR", cabecalho) + bloco(b"IDAT", zlib.compress(linhas, 0)) + bloco(b"IEND", b"")
+
+
+def test_fotos_que_so_carregam_ao_aparecer_na_tela():
+    """Como no SIGEduc real: a foto só carrega quando o cartão aparece na tela (data-src),
+    demora a responder e pode ser grande. O navegador entrega a foto já reduzida."""
+    pw, navegador = _navegador()
+    imagens = {"icone.png": _png(16, 12, 0), "silhueta.png": _png(60, 75, 1), "grande.png": _png(500, 600, 2)}
+    cartoes = []
+    for i in range(30):
+        foto = "silhueta.png" if i % 3 == 0 else ("grande.png" if i == 1 else f"f{i}.png")
+        imagens.setdefault(foto, _png(60, 75, 100 + i))
+        cartoes.append(
+            f'<div style="height:400px"><span>● ALUNO {i}</span> <img src="icone.png" width="16" height="12">'
+            f'<img class="lenta" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" data-src="{foto}" width="60" height="75">'
+            f"<p>Matrícula: 2026{i:08d}</p><p>Usuário: Sem cadastro no sistema</p></div>"
+        )
+    pagina_html = (
+        '<meta charset="utf-8"><h2>Estudantes</h2>' + "".join(cartoes) + """<script>
+        const o = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) {
+          const i = e.target; o.unobserve(i); setTimeout(() => { i.src = i.dataset.src; }, 300); } }));
+        document.querySelectorAll('img.lenta').forEach((i) => o.observe(i));</script>"""
+    )
+
+    def responder(rota):
+        nome = rota.request.url.rsplit("/", 1)[-1]
+        if nome in imagens:
+            rota.fulfill(body=imagens[nome], content_type="image/png")
+        else:
+            rota.fulfill(body=pagina_html, content_type="text/html; charset=utf-8")
+
+    try:
+        pagina = navegador.new_page(viewport={"width": 800, "height": 600})
+        pagina.route("http://sigeduc.teste/**", responder)
+        pagina.goto("http://sigeduc.teste/estudantes")
+        estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES, FOTO_LADO))
+    finally:
+        navegador.close()
+        pw.stop()
+    assert len(estudantes) == 30 and all(e.foto for e in estudantes)
+    assert {_tipo_imagem(e.foto) for e in estudantes} == {"image/jpeg"}
+    from apisigeduc.tarefas.turmas import descartar_fotos_padrao
+
+    finais = descartar_fotos_padrao(estudantes)
+    assert [i for i, e in enumerate(finais) if not e.foto] == list(range(0, 30, 3))  # só a silhueta sai
+    assert len(finais[1].foto) < len(imagens["grande.png"]) // 4  # a foto grande veio reduzida
+
+
+def test_resumo_das_fotos():
+    situacoes = {"1": "com_foto", "2": "silhueta", "3": "silhueta", "4": "nao_baixada"}
+    assert resumo_fotos(situacoes) == (
+        "Fotos: 1 de 4 estudante(s); 2 com a imagem padrão do SIGEduc (sem foto cadastrada); "
+        "1 com foto que não foi possível baixar"
+    )

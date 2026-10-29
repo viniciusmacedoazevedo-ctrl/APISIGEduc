@@ -26,6 +26,7 @@ no `README.md`.
 | Senha do SIGEduc por usuário, cifrada (Fernet, `SIGEDUC_CHAVE`) | pronta |
 | Login no SIGEduc | funciona; a verificação humana ("não sou um robô") é resolvida por uma pessoa com o navegador visível |
 | Importar turmas e estudantes (Portal do Professor > Escola Digital > Turmas > Estudantes) | **funcionando no SIGEduc real** |
+| Fotos dos estudantes | corrigida a captura (fotos só carregavam ao aparecer na tela); conferir no SIGEduc real |
 | Composição de notas em grupos e avaliações, média, Excel, modo chamada no celular, PWA | pronta e testada (falta uso real) |
 | Desempenho: indicadores, distribuição, rankings, comparação de turmas, ano letivo | pronta e testada |
 | Diário: chamada, aulas, frequência, ficha do aluno, anotações privadas (importante = sinal), fotos | pronta e testada |

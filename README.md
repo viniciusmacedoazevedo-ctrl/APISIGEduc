@@ -206,6 +206,9 @@ As notas ficam ligadas à turma e à matrícula, então continuam valendo depois
 - **Fotos:** copiadas do SIGEduc na busca de turmas, para reconhecer os estudantes; só os
   professores do estudante as veem. A silhueta que o SIGEduc mostra para quem não tem foto é
   descartada (a mesma imagem para duas matrículas diferentes).
+  O robô rola a lista até cada cartão para a foto carregar e guarda uma cópia reduzida
+  (até 320 px). O resultado da busca diz quantos estudantes vieram com foto e por que os
+  outros ficaram sem (imagem padrão do SIGEduc, sem imagem, imagem quebrada, falha ao baixar).
 
 ### Sincronização com o SIGEduc
 
