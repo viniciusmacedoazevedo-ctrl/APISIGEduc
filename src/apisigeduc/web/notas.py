@@ -203,6 +203,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
                 for g in estrutura.grupos
             ],
         }
+        ligacao = next(l for l, t in comp.turmas_aplicadas(sessoes, composicao_id) if t.id == turma_id)
         return pagina(
             request,
             "lancamento.html",
@@ -215,6 +216,8 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             completos=sum(1 for l in linhas if l.media is not None),
             marcados=diario.contagem_anotacoes(sessoes, usuario.id, [l.matricula for l in linhas]),
             com_foto=turmas_repo.com_foto(sessoes, [l.matricula for l in linhas]),
+            liberado_em=ligacao.enviado_em,
+            janela=ctx.config.janela_sincronia,
         )
 
     @app.post("/notas/{composicao_id}/turmas/{turma_id}")
@@ -352,8 +355,8 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
         avisar(request, f"Planilha importada: {len(valores) - len(erros)} nota(s) gravada(s).")
         return voltar(destino)
 
-    @app.post("/notas/{composicao_id}/turmas/{turma_id}/enviar")
-    def enviar_medias(
+    @app.post("/notas/{composicao_id}/turmas/{turma_id}/liberar")
+    def liberar_medias(
         request: Request,
         composicao_id: int,
         turma_id: int,
@@ -361,13 +364,11 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
         csrf_token: str = Form(""),
         usuario: Usuario = Depends(usuario_logado),
     ):
+        """Libera as médias da turma para a próxima carga ao SIGEduc (janela agendada ou
+        carga do administrador). Médias alteradas depois de entregues voltam a ser enviadas."""
         verificar_csrf(request, csrf_token)
         estrutura, turma = turma_aplicada(composicao_id, turma_id, usuario)
-        composicao = estrutura.composicao
         destino = f"/notas/{composicao_id}/turmas/{turma_id}"
-        if repo.dados_credencial(usuario.id) is None:
-            avisar(request, "Cadastre sua senha do SIGEduc antes de enviar as médias.", "erro")
-            return voltar("/credencial")
         linhas = comp.planilha(sessoes, composicao_id, turma_id)
         completos = [l for l in linhas if l.media is not None]
         faltando = len(linhas) - len(completos)
@@ -378,12 +379,22 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             avisar(
                 request,
                 f"{faltando} estudante(s) ainda sem todas as notas. Complete ou marque "
-                f"\"Enviar só quem está completo\".",
+                f"\"Liberar só quem está completo\" (os demais entram quando forem completados).",
                 "erro",
             )
             return voltar(destino)
-        nome = f"Médias {composicao.bimestre}º bim - {turma.codigo} - {turma.componente}.csv"
-        envio_id = envios.criar(sessoes, usuario.id, "notas", nome, comp.csv_medias(composicao, turma, linhas), len(completos))
-        comp.marcar_enviado(sessoes, composicao_id, turma_id)
-        avisar(request, f"{len(completos)} média(s) da turma {turma.codigo} na fila de lançamento no SIGEduc (envio nº {envio_id}).")
+        comp.liberar(sessoes, composicao_id, turma_id)
+        janela = ctx.config.janela_sincronia
+        quando = f"na carga das {janela}" if janela else "na próxima carga feita pelo administrador"
+        avisar(request, f"{len(completos)} média(s) de {turma.codigo} liberadas. Vão ao SIGEduc {quando}.")
         return voltar(destino)
+
+    @app.post("/notas/{composicao_id}/turmas/{turma_id}/recolher")
+    def recolher_medias(
+        request: Request, composicao_id: int, turma_id: int, csrf_token: str = Form(""), usuario: Usuario = Depends(usuario_logado)
+    ):
+        verificar_csrf(request, csrf_token)
+        turma_aplicada(composicao_id, turma_id, usuario)
+        comp.liberar(sessoes, composicao_id, turma_id, liberado=False)
+        avisar(request, "Liberação cancelada: as médias desta turma não vão na próxima carga.")
+        return voltar(f"/notas/{composicao_id}/turmas/{turma_id}")

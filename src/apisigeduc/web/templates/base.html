@@ -30,7 +30,7 @@
     <a href="/turmas" {{ atual("/turmas") }}>Turmas</a>
     <a href="/" {{ atual("/") }}>Envios</a>
     <a href="/credencial" {{ atual("/credencial") }}>Senha do SIGEduc</a>
-    {% if usuario.admin %}<a href="/admin/usuarios" {{ atual("/admin") }}>Usuários</a>{% endif %}
+    {% if usuario.admin %}<a href="/admin/usuarios" {{ atual("/admin/usuarios") }}>Usuários</a><a href="/admin/sincronizacao" {{ atual("/admin/sincronizacao") }}>Sincronização</a>{% endif %}
     <a href="/conta" {{ atual("/conta") }}>{{ usuario.nome or usuario.email }}</a>
     <form method="post" action="/sair"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button>Sair</button></form>
   </nav>

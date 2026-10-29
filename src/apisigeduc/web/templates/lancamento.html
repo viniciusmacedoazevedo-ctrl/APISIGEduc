@@ -97,15 +97,26 @@
 </div>
 
 <div class="cartao">
-  <h2>Enviar médias ao SIGEduc</h2>
-  <p class="suave">Salve as notas antes. As médias entram na fila de lançamento com o seu login do SIGEduc.</p>
-  <form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/enviar">
+  <h2>Enviar ao SIGEduc</h2>
+  {% if liberado_em %}
+  <p class="aviso" style="margin-bottom:12px">Médias liberadas em {{ liberado_em|data }}. Vão ao SIGEduc
+    {{ ("na carga das " ~ janela) if janela else "na próxima carga feita pelo administrador" }}; notas corrigidas depois são reenviadas.</p>
+  <form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/recolher" class="linha">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <button class="botao secundario pequeno">Cancelar liberação</button>
+  </form>
+  {% else %}
+  <p class="suave">Salve as notas antes. Ao liberar, as médias entram na próxima carga para o SIGEduc
+    ({{ ("todo dia às " ~ janela) if janela else "feita pelo administrador" }}). Só a média vai ao SIGEduc;
+    as notas de cada avaliação e as anotações ficam aqui.</p>
+  {% endif %}
+  <form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/liberar">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
     {% if completos < linhas|length %}
-    <label class="check"><input type="checkbox" name="so_completos" value="true"> Enviar só quem está completo ({{ completos }} de {{ linhas|length }})</label>
+    <label class="check"><input type="checkbox" name="so_completos" value="true"> Liberar só quem está completo ({{ completos }} de {{ linhas|length }})</label>
     {% endif %}
     <div class="botoes">
-      <button class="botao">Enviar médias ao SIGEduc</button>
+      {% if not liberado_em %}<button class="botao">Liberar médias para o SIGEduc</button>{% endif %}
       <a class="botao secundario" href="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/medias.csv">Baixar médias (CSV)</a>
     </div>
   </form>

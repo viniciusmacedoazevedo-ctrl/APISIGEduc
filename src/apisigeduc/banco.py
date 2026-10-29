@@ -165,7 +165,9 @@ class ComposicaoTurma(Base):
     composicao_id: Mapped[int] = mapped_column(ForeignKey("composicoes.id", ondelete="CASCADE"), index=True)
     turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
     aplicado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    enviado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # médias enviadas ao SIGEduc
+    # quando o professor liberou as médias desta turma para a próxima carga ao SIGEduc
+    # (o nome da coluna vem da versão em que o professor enviava direto)
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class NotaItem(Base):
@@ -239,6 +241,38 @@ class Anotacao(Base):
     importante: Mapped[bool] = mapped_column(Boolean, default=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Entrega(Base):
+    """Carga de dados para a SEEC/SIGEduc: por arquivo padronizado ou pelo robô.
+    Manual (pelo administrador) ou agendada (janela de horário)."""
+
+    __tablename__ = "entregas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    criado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)  # vazio = agendada
+    modo: Mapped[str] = mapped_column(String(20))  # arquivo | sigeduc
+    qtd_medias: Mapped[int] = mapped_column(Integer, default=0)
+    qtd_frequencias: Mapped[int] = mapped_column(Integer, default=0)
+    arquivo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)  # ZIP gerado (modo arquivo)
+    observacao: Mapped[str] = mapped_column(Text, default="")
+
+
+class EntregaItem(Base):
+    """Um dado entregue: a média de um bimestre ou a presença numa aula, com o valor
+    enviado. Mudou depois? Volta a ser pendente."""
+
+    __tablename__ = "entregas_itens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entrega_id: Mapped[int] = mapped_column(ForeignKey("entregas.id", ondelete="CASCADE"), index=True)
+    tipo: Mapped[str] = mapped_column(String(20))  # media | frequencia
+    turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
+    matricula: Mapped[str] = mapped_column(String(50))
+    referencia: Mapped[str] = mapped_column(String(40))  # "2026-3" (ano-bimestre) ou "2026-10-28" (data da aula)
+    valor: Mapped[str] = mapped_column(String(20))
+    envio_id: Mapped[int | None] = mapped_column(ForeignKey("envios.id"), nullable=True)  # modo sigeduc
 
 
 def normalizar_url(url: str) -> str:

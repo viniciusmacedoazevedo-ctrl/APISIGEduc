@@ -203,6 +203,22 @@ As notas ficam ligadas à turma e à matrícula, então continuam valendo depois
   professores do estudante as veem. A silhueta que o SIGEduc mostra para quem não tem foto é
   descartada (a mesma imagem para duas matrículas diferentes).
 
+### Sincronização com o SIGEduc
+
+O professor **libera** as médias da turma (botão "Liberar médias para o SIGEduc" na tela de
+notas); a frequência das chamadas entra sozinha. Nada vai direto: tudo espera a **carga**.
+
+- **Carga manual** (administrador, menu **Sincronização**): mostra o que está pendente por
+  professor e turma e oferece **Gerar arquivo para a SEEC** (ZIP com `medias.csv`,
+  `frequencia.csv` e `LEIAME.txt`, layout provisório até a SEEC definir o seu) ou **Enviar
+  médias pelo robô** (fila de lançamento, uma planilha por turma e bimestre).
+- **Carga agendada:** `APISIGEDUC_JANELA_SINCRONIA=19:00` no `.env` faz a carga todo dia a
+  partir desse horário (uma vez por dia), no modo `APISIGEDUC_MODO_SINCRONIA` (`arquivo` ou
+  `sigeduc`).
+- Cada carga fica registrada (quem, quando, quantos itens, o arquivo). Um dado já entregue não
+  se repete; nota corrigida ou chamada refeita depois volta a ser pendente. No robô, só conta
+  como entregue quando o envio conclui.
+
 ### Desempenho e indicadores
 
 Depois de lançar as notas, cada turma tem a página **Ver desempenho da turma**:
@@ -324,6 +340,7 @@ src/apisigeduc/
   planilha_notas.py  exportar/importar a grade de notas em Excel (.xlsx)
   desempenho.py   indicadores, rankings e acompanhamento do ano letivo
   diario.py       aulas, chamada, frequência e anotações privadas
+  sincronia.py    pendências, carga manual/agendada e arquivo padronizado para a SEEC
   web/            tela web (FastAPI + modelos HTML); web/notas.py: telas de notas;
                   web/static: estilo, ícones, manifesto e service worker (PWA)
   cliente.py      sessão do navegador e login no SIGEduc

@@ -490,6 +490,18 @@ def csv_medias(composicao: Composicao, turma: Turma, linhas: list[LinhaAluno]) -
     return ("﻿" + saida.getvalue()).encode("utf-8")
 
 
+def liberar(sessoes: sessionmaker, composicao_id: int, turma_id: int, liberado: bool = True) -> None:
+    """Libera (ou recolhe) as médias da turma para a próxima carga ao SIGEduc."""
+    with sessoes.begin() as sessao:
+        ligacao = sessao.scalar(
+            select(ComposicaoTurma).where(
+                ComposicaoTurma.composicao_id == composicao_id, ComposicaoTurma.turma_id == turma_id
+            )
+        )
+        if ligacao is not None:
+            ligacao.enviado_em = datetime.now() if liberado else None
+
+
 def marcar_enviado(sessoes: sessionmaker, composicao_id: int, turma_id: int) -> None:
     with sessoes.begin() as sessao:
         ligacao = sessao.scalar(

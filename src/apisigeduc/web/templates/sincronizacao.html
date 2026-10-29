@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block titulo %}Sincronização{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h1>Sincronização com o SIGEduc</h1>
+  <p class="suave" style="margin:0">Vão ao SIGEduc só as médias liberadas pelos professores e a frequência das chamadas.
+    Dados já entregues não se repetem; os corrigidos depois voltam a ser enviados.</p>
+  <p style="margin:12px 0 0">{% if janela %}<strong>Carga agendada:</strong> todo dia às {{ janela }} ({{ MODOS.get(modo_agendado, modo_agendado)|lower }}).
+    {% else %}<strong>Sem carga agendada.</strong> <span class="suave">Para agendar, defina <code>APISIGEDUC_JANELA_SINCRONIA=19:00</code> no <code>.env</code>.</span>{% endif %}</p>
+</div>
+
+<div class="cartao">
+  <div class="indicadores">
+    <div class="indicador {{ 'alerta-indicador' if total_medias }}"><span class="rotulo">Médias pendentes</span><span class="valor">{{ total_medias }}</span><span class="suave">liberadas e ainda não entregues</span></div>
+    <div class="indicador {{ 'alerta-indicador' if total_frequencias }}"><span class="rotulo">Frequência pendente</span><span class="valor">{{ total_frequencias }}</span><span class="suave">registros de presença ou falta</span></div>
+  </div>
+  {% if resumo %}
+  <div class="tabela" style="margin-top:16px"><table>
+    <tr><th>Professor</th><th>Turma</th><th style="text-align:right">Médias</th><th style="text-align:right">Frequência</th></tr>
+    {% for r in resumo %}
+    <tr><td>{{ r.professor }}</td><td>{{ r.turma.codigo }} <span class="suave">{{ r.turma.componente }}</span></td>
+      <td style="text-align:right" class="num">{{ r.medias }}</td><td style="text-align:right" class="num">{{ r.frequencias }}</td></tr>
+    {% endfor %}
+  </table></div>
+  {% endif %}
+  <div class="botoes">
+    <form method="post" action="/admin/sincronizacao/carga" style="margin:0" data-confirmar="Gerar o arquivo da carga com tudo o que está pendente? Os itens passam a contar como entregues.">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="modo" value="arquivo">
+      <button class="botao" {{ "disabled" if not (total_medias or total_frequencias) }}>Gerar arquivo para a SEEC</button>
+    </form>
+    <form method="post" action="/admin/sincronizacao/carga" style="margin:0" data-confirmar="Colocar as médias pendentes na fila do robô para lançar no SIGEduc?">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="modo" value="sigeduc">
+      <button class="botao secundario" {{ "disabled" if not total_medias }}>Enviar médias pelo robô</button>
+    </form>
+  </div>
+  <p class="suave">O robô lança só as médias e precisa que alguém resolva a verificação do login do SIGEduc; a frequência vai pelo arquivo.
+    O lançamento pelo robô ainda depende do mapeamento da tela de notas do SIGEduc.</p>
+</div>
+
+<div class="cartao">
+  <h2>Cargas feitas</h2>
+  {% if entregas %}
+  <div class="tabela"><table>
+    <tr><th>Nº</th><th>Quando</th><th>Origem</th><th>Modo</th><th style="text-align:right">Médias</th><th style="text-align:right">Frequência</th><th></th></tr>
+    {% for e in entregas %}
+    <tr><td class="num">{{ e.id }}</td><td class="num">{{ e.criado_em|data }}</td><td>{{ "Agendada" if e.criado_por_id is none else "Manual" }}</td>
+      <td>{{ MODOS.get(e.modo, e.modo) }}{% if e.observacao %}<br><span class="suave">{{ e.observacao }}</span>{% endif %}</td>
+      <td style="text-align:right" class="num">{{ e.qtd_medias }}</td><td style="text-align:right" class="num">{{ e.qtd_frequencias }}</td>
+      <td>{% if e.modo == "arquivo" %}<a href="/admin/sincronizacao/{{ e.id }}/arquivo.zip">Baixar arquivo</a>{% else %}<a href="/">Ver fila</a>{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="suave">Nenhuma carga ainda.</p>{% endif %}
+</div>
+{% endblock %}

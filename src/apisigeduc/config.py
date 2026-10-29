@@ -35,6 +35,9 @@ class Config:
     espera_verificacao_s: int = 300
     # média mínima para aprovação (rede estadual do RN: 6,0)
     media_minima: float = 6.0
+    # janela diária de carga para a SEEC ("19:00"; vazio = só carga manual) e o modo
+    janela_sincronia: str = ""
+    modo_sincronia: str = "arquivo"  # arquivo | sigeduc
 
     @classmethod
     def carregar(cls) -> "Config":
@@ -56,4 +59,6 @@ class Config:
             pausa_ms=int(os.getenv("SIGEDUC_PAUSA_MS", "500")),
             espera_verificacao_s=int(os.getenv("SIGEDUC_ESPERA_VERIFICACAO_S", "300")),
             media_minima=float(os.getenv("APISIGEDUC_MEDIA_MINIMA", "6").replace(",", ".")),
+            janela_sincronia=os.getenv("APISIGEDUC_JANELA_SINCRONIA", "").strip(),
+            modo_sincronia=os.getenv("APISIGEDUC_MODO_SINCRONIA", "arquivo").strip() or "arquivo",
         )

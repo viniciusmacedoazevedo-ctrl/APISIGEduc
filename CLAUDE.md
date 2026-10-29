@@ -29,6 +29,7 @@ no `README.md`.
 | Composição de notas em grupos e avaliações, média, Excel, modo chamada no celular, PWA | pronta e testada (falta uso real) |
 | Desempenho: indicadores, distribuição, rankings, comparação de turmas, ano letivo | pronta e testada |
 | Diário: chamada, aulas, frequência, ficha do aluno, anotações privadas (importante = sinal), fotos | pronta e testada |
+| Sincronização: professor libera, carga manual (admin) ou agendada, arquivo padronizado ou robô, sem reenvio | pronta e testada |
 | **Digitar as médias na tela de notas do SIGEduc** | **pendente**: seletores "A MAPEAR" em `seletores.py`, rotina em `tarefas/notas.py` |
 | Lançamento de frequência no SIGEduc | pendente, mesma situação |
 

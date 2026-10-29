@@ -264,16 +264,14 @@ def test_fluxo_web(config, sessoes, repo, cenario):
     )
     assert "Notas salvas" in r.text and "9,5" in r.text
 
-    # sem senha do SIGEduc
-    r = cliente.post(f"/notas/{cid}/turmas/{tid}/enviar", data={"csrf_token": csrf})
-    assert "Cadastre sua senha do SIGEduc" in r.text
-    repo.definir_credencial(prof.id, "27477610885", "x")
-    r = cliente.post(f"/notas/{cid}/turmas/{tid}/enviar", data={"csrf_token": csrf})
+    # liberar para a próxima carga (não envia direto)
+    r = cliente.post(f"/notas/{cid}/turmas/{tid}/liberar", data={"csrf_token": csrf})
     assert "1 estudante(s) ainda sem todas as notas" in r.text
-    r = cliente.post(f"/notas/{cid}/turmas/{tid}/enviar", data={"csrf_token": csrf, "so_completos": "true"})
-    assert "1 média(s) da turma EFV6A na fila" in r.text
-    [envio] = envios.listar(sessoes)
-    assert envio.tipo == "notas" and envio.total == 1
+    r = cliente.post(f"/notas/{cid}/turmas/{tid}/liberar", data={"csrf_token": csrf, "so_completos": "true"})
+    assert "1 média(s) de EFV6A liberadas" in r.text and "Médias liberadas em" in r.text
+    assert envios.listar(sessoes) == []  # nada vai à fila até a carga
+    r = cliente.post(f"/notas/{cid}/turmas/{tid}/recolher", data={"csrf_token": csrf})
+    assert "Liberação cancelada" in r.text
 
     # outro professor não acessa
     repo.criar("outro@escola.br", "Outro", "senha-outro")

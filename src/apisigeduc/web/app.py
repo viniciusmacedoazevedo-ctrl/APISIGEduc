@@ -22,12 +22,14 @@ from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
 from .. import envios
+from .. import sincronia
 from .. import turmas as turmas_repo
 from ..banco import Turma, Usuario
 from ..modelos import descrever_turma
 from ..config import Config, ConfigError
 from ..usuarios import RepositorioUsuarios, UsuarioNaoEncontrado
 from . import diario as diario_web
+from . import sincronia as sincronia_web
 from . import notas as notas_web
 
 log = logging.getLogger(__name__)
@@ -93,6 +95,12 @@ def criar_app(
             threading.Thread(
                 target=envios.rodar_worker, args=(sessoes, repo, config, parar), daemon=True
             ).start()
+            if sincronia.hora_da_janela(config.janela_sincronia):
+                threading.Thread(
+                    target=sincronia.rodar_agendador,
+                    args=(sessoes, config.janela_sincronia, config.modo_sincronia, parar),
+                    daemon=True,
+                ).start()
         yield
         parar.set()
 
@@ -453,8 +461,10 @@ def criar_app(
         voltar=voltar,
         verificar_csrf=verificar_csrf,
         usuario_logado=usuario_logado,
+        admin_logado=admin_logado,
         turma_permitida=turma_permitida,
     )
     notas_web.registrar(app, contexto)
     diario_web.registrar(app, contexto)
+    sincronia_web.registrar(app, contexto)
     return app

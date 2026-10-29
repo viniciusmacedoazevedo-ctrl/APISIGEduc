@@ -50,7 +50,7 @@
   {% if aplicadas %}<p><a class="botao secundario pequeno" href="/notas/{{ composicao.id }}/desempenho">Desempenho e rankings das turmas</a></p>{% endif %}
   {% if aplicadas %}
   <div class="tabela"><table>
-    <tr><th>Turma</th><th>Componente</th><th>Notas completas</th><th>Enviado ao SIGEduc</th><th></th></tr>
+    <tr><th>Turma</th><th>Componente</th><th>Notas completas</th><th>Liberado para o SIGEduc</th><th></th></tr>
     {% for ligacao, t in aplicadas %}
     {% set feitos, todos = progresso[t.id] %}
     <tr>
