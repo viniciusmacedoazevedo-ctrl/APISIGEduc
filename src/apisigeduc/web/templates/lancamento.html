@@ -5,8 +5,8 @@
   <h1>{{ turma.codigo }} · {{ turma.componente }} — {{ composicao.nome }}</h1>
   <p class="suave">{{ turma.codigo | descrever_turma }} · {{ turma.escola }}<br>
     {{ BIMESTRES[composicao.bimestre] }} de {{ composicao.ano_letivo }} ·
-    {{ "média = soma dos itens" if composicao.calculo == "soma" else "média = média dos itens na escala 0 a 10" }} ·
     {{ completos }} de {{ linhas|length }} estudante(s) com todas as notas</p>
+  <div class="suave">{% for linha in estrutura.formula() %}<div>{{ linha }}</div>{% endfor %}</div>
   <p><a href="/notas/{{ composicao.id }}">← Voltar à composição</a></p>
 </div>
 
@@ -15,22 +15,39 @@
   {% if linhas %}
   <div class="tabela"><table>
     <tr>
-      <th>Estudante</th>
-      {% for i in itens %}
-      <th style="text-align:center">{{ i.nome }}<br><span class="suave">vale {{ i.valor_maximo|num }}</span><br>
-        <input type="text" class="nota" inputmode="decimal" placeholder="todos" data-todos="{{ i.id }}" title="Digite e aperte Enter para dar a mesma nota a todos">
+      <th rowspan="2">Estudante</th>
+      {% for g in estrutura.grupos %}
+      {% set varias = g.avaliacoes|length > 1 %}
+      <th colspan="{{ g.avaliacoes|length + (1 if varias else 0) }}" style="text-align:center;border-left:2px solid var(--borda)">
+        {{ g.grupo.nome }} <span class="suave">· vale {{ g.grupo.valor|num }}{% if varias %} · {{ CALCULO_NOMES[g.grupo.calculo] }}{% endif %}</span></th>
+      {% endfor %}
+      <th rowspan="2" style="text-align:center;border-left:2px solid var(--borda)">Média</th>
+    </tr>
+    <tr>
+      {% for g in estrutura.grupos %}
+      {% set varias = g.avaliacoes|length > 1 %}
+      {% for a in g.avaliacoes %}
+      <th style="text-align:center;{{ 'border-left:2px solid var(--borda)' if loop.first }}">{% if varias %}{{ a.nome }}<br>{% endif %}<span class="suave">vale {{ a.valor_maximo|num }}</span><br>
+        <input type="text" class="nota" inputmode="decimal" placeholder="todos" data-todos="{{ a.id }}" title="Digite e aperte Enter para dar a mesma nota a todos">
       </th>
       {% endfor %}
-      <th style="text-align:center">Média</th>
+      {% if varias %}<th style="text-align:center" class="suave">nota do<br>grupo</th>{% endif %}
+      {% endfor %}
     </tr>
     {% for l in linhas %}
     <tr>
       <td>{{ l.nome }}<br><span class="suave">{{ l.matricula }}</span></td>
-      {% for i in itens %}
-      <td style="text-align:center"><input type="text" class="nota" inputmode="decimal" name="n_{{ i.id }}_{{ l.matricula }}"
-          value="{{ l.notas.get(i.id)|num }}" data-item="{{ i.id }}" data-max="{{ i.valor_maximo }}"></td>
+      {% for g in estrutura.grupos %}
+      {% for a in g.avaliacoes %}
+      <td style="text-align:center;{{ 'border-left:2px solid var(--borda)' if loop.first }}"><input type="text" class="nota" inputmode="decimal" name="n_{{ a.id }}_{{ l.matricula }}"
+          value="{{ l.notas.get(a.id)|num }}" data-item="{{ a.id }}" data-max="{{ a.valor_maximo }}"></td>
       {% endfor %}
-      <td class="media {{ 'vazia' if l.media is none }}">{{ l.media|num if l.media is not none else "—" }}</td>
+      {% if g.avaliacoes|length > 1 %}
+      {% set parcial = l.grupos.get(g.grupo.id) %}
+      <td class="media vazia" data-grupo="{{ g.grupo.id }}">{{ (parcial|round(2))|num if parcial is not none else "—" }}</td>
+      {% endif %}
+      {% endfor %}
+      <td class="media {{ 'vazia' if l.media is none }}" data-media style="border-left:2px solid var(--borda)">{{ l.media|num if l.media is not none else "—" }}</td>
     </tr>
     {% endfor %}
   </table></div>
@@ -61,22 +78,32 @@
 {% endif %}
 
 <script>
-  const calculo = {{ composicao.calculo | tojson }};
+  const regras = {{ regras | tojson }};
   const numero = (t) => { t = (t || '').trim().replace(',', '.'); return t === '' ? null : Number(t); };
-  const arred = (v) => Math.round((v + Number.EPSILON) * 10) / 10;
+  const arred = (v, casas = 1) => Math.round((v + Number.EPSILON) * 10 ** casas) / 10 ** casas;
+  const combinar = (calculo, partes, total) => calculo === 'media'
+    ? partes.reduce((t, [n, max]) => t + n / max, 0) / partes.length * total
+    : partes.reduce((t, [n]) => t + n, 0);
   function recalcular(tr) {
-    const campos = [...tr.querySelectorAll('input[data-item]')];
-    let ok = true, soma = 0, medias = 0;
-    campos.forEach((c) => {
+    const notas = {};
+    let validas = true;
+    tr.querySelectorAll('input[data-item]').forEach((c) => {
       const v = numero(c.value), max = Number(c.dataset.max);
       const invalida = v !== null && (isNaN(v) || v < 0 || v > max);
       c.classList.toggle('invalida', invalida);
-      if (v === null || invalida) { ok = false; return; }
-      soma += v; medias += v / max * 10;
+      if (v !== null && !invalida) notas[c.dataset.item] = [v, max];
+      if (invalida) validas = false;
     });
-    const celula = tr.querySelector('.media');
-    const media = calculo === 'soma' ? soma : medias / campos.length;
-    celula.textContent = ok ? arred(Math.min(media, 10)).toLocaleString('pt-BR') : '—';
+    const parciais = regras.grupos.map((g) => {
+      const partes = g.avaliacoes.map((id) => notas[id]);
+      const nota = partes.every(Boolean) ? combinar(g.calculo, partes, g.valor) : null;
+      const celula = tr.querySelector(`[data-grupo="${g.id}"]`);
+      if (celula) celula.textContent = nota === null ? '—' : arred(nota, 2).toLocaleString('pt-BR');
+      return nota === null ? null : [nota, g.valor];
+    });
+    const celula = tr.querySelector('[data-media]');
+    const ok = validas && parciais.every(Boolean);
+    celula.textContent = ok ? arred(Math.min(combinar(regras.calculo, parciais, 10), 10)).toLocaleString('pt-BR') : '—';
     celula.classList.toggle('vazia', !ok);
   }
   const grade = document.getElementById('grade');

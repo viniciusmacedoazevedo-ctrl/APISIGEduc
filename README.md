@@ -136,20 +136,35 @@ Pelo terminal: `apisigeduc turmas --usuario seu@email.com`.
 ### Composição de notas
 
 No SIGEduc entra só a média do bimestre. No menu **Notas** você monta como ela é formada,
-**antes** de escolher a turma:
+**antes** de escolher a turma. A composição é totalmente personalizável, em dois níveis:
 
-1. **Nova composição:** nome (ex.: "3º bimestre - 6º anos"), bimestre, ano e os itens, cada
-   um com quanto vale (ex.: Trabalho vale 2, Teste vale 3, Prova vale 5).
-   - **Nota para todos** (opcional): quando todos tiraram a mesma nota no item (ex.: um
-     trabalho em grupo valendo 2). Ela é lançada para todos os alunos ao aplicar.
-   - **Cálculo:** *soma dos itens* (os itens somam até 10) ou *média dos itens* (cada item
-     convertido para 0 a 10). A média é arredondada para 1 casa (8,25 → 8,3).
-2. **Aplicar em turmas:** marque as turmas (6º A, 6º B...). A mesma composição vale para
-   todas e pode ser **copiada** para outro bimestre.
-3. **Lançar notas:** em cada turma, uma grade com os estudantes e os itens. A linha
-   "todos" preenche a coluna inteira; depois é só ajustar aluno por aluno. A média aparece
-   enquanto você digita, e notas acima do valor do item são recusadas.
-4. **Enviar médias ao SIGEduc:** as médias entram na fila de lançamento com o seu login.
+```
+Média do bimestre  = soma ou média dos GRUPOS      (Trabalho, Teste, Prova...)
+Nota de cada grupo = soma ou média das AVALIAÇÕES  (Trabalho 1, 2, 3; Av1, Av2...)
+```
+
+| Exemplo | Como montar |
+|---|---|
+| Uma prova valendo 10 | grupo Prova, vale 10 |
+| Teste 10 e Prova 10, média = (T + P) / 2 | média dos grupos; Teste 10, Prova 10 |
+| Teste 5 e Prova 5, média = T + P | soma dos grupos; Teste 5, Prova 5 |
+| Trabalho 4 + Teste 2 + Prova 4 | soma dos grupos |
+| Trabalho com Trabalho 1, 2 e 3 | grupo Trabalho dividido em avaliações, combinadas por soma (1 + 1 + 2) ou média |
+| Teste e Prova com Av1 e Av2 | cada grupo dividido em Av1 e Av2, combinadas por média |
+
+Na **soma**, os valores das partes somam até o valor do todo; na **média**, cada parte é
+convertida para a escala do todo. A média final é arredondada para 1 casa (8,25 → 8,3). A
+tela mostra a fórmula por extenso e avisa quando faltam pontos (ex.: Trabalho com 2 de 4).
+
+1. **Nova composição:** comece de um modelo pronto ou monte os grupos; use "Dividir em
+   várias avaliações" para ter Trabalho 1, 2, 3 etc. Cada avaliação pode ter uma **nota
+   para todos** (ex.: trabalho em grupo em que todos tiraram 2).
+2. **Aplicar em turmas:** marque as turmas (6º A, 6º B...). Dá para **copiar** a composição
+   para outro bimestre.
+3. **Durante o bimestre:** inclua avaliações novas num grupo (ex.: o Trabalho 3) ou remova.
+4. **Lançar notas:** em cada turma, uma grade com as avaliações agrupadas, a nota de cada
+   grupo e a média, calculadas enquanto você digita. A linha "todos" preenche a coluna.
+5. **Enviar médias ao SIGEduc:** as médias entram na fila de lançamento com o seu login.
    Se faltar nota de algum aluno, dá para enviar só os completos.
 
 As notas ficam ligadas à turma e à matrícula, então continuam valendo depois de
@@ -222,13 +237,14 @@ src/apisigeduc/
   cli.py          linha de comando
   config.py       leitura do .env
   banco.py        tabelas: usuarios, credenciais_sigeduc, envios, turmas, estudantes,
-                  composicoes, itens_composicao, composicoes_turmas, notas_itens
+                  composicoes, grupos_composicao, itens_composicao (avaliações),
+                  composicoes_turmas, notas_itens
   senhas.py       hash das senhas de acesso
   cripto.py       criptografia das senhas do SIGEduc
   usuarios.py     usuários e credenciais
   envios.py       fila de planilhas e worker
   turmas.py       turmas e estudantes importados
-  composicoes.py  composição das notas do bimestre e cálculo da média
+  composicoes.py  composição das notas (grupos e avaliações) e cálculo da média
   web/            tela web (FastAPI + modelos HTML); web/notas.py: telas de notas
   cliente.py      sessão do navegador e login no SIGEduc
   seletores.py    seletores das telas (único arquivo a ajustar se o layout mudar)

@@ -19,6 +19,8 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     create_engine,
+    inspect,
+    text,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -120,13 +122,31 @@ class Composicao(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class GrupoComposicao(Base):
+    """Grupo da composição (Trabalho, Teste, Prova), com quanto vale na média do
+    bimestre e como combina as suas avaliações (soma ou média)."""
+
+    __tablename__ = "grupos_composicao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    composicao_id: Mapped[int] = mapped_column(ForeignKey("composicoes.id", ondelete="CASCADE"), index=True)
+    nome: Mapped[str] = mapped_column(String(100))
+    valor: Mapped[float] = mapped_column(Float)
+    calculo: Mapped[str] = mapped_column(String(20), default="soma")  # soma | media
+    ordem: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class ItemComposicao(Base):
-    """Item da composição: Trabalho (vale 2), Prova (vale 5)..."""
+    """Avaliação de um grupo: Trabalho 1 (vale 2), Prova - Av1 (vale 10)..."""
 
     __tablename__ = "itens_composicao"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     composicao_id: Mapped[int] = mapped_column(ForeignKey("composicoes.id", ondelete="CASCADE"), index=True)
+    # nulo só em bancos anteriores aos grupos; migrar() cria um grupo para cada um
+    grupo_id: Mapped[int | None] = mapped_column(
+        ForeignKey("grupos_composicao.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     nome: Mapped[str] = mapped_column(String(100))
     valor_maximo: Mapped[float] = mapped_column(Float)
     # nota aplicada a todos os estudantes ao aplicar a composição numa turma
@@ -168,7 +188,26 @@ def normalizar_url(url: str) -> str:
     return url
 
 
+def migrar(engine) -> None:
+    """Ajustes em bancos criados por versões anteriores (create_all não altera tabelas)."""
+    colunas = {c["name"] for c in inspect(engine).get_columns("itens_composicao")}
+    with engine.begin() as conexao:
+        if "grupo_id" not in colunas:
+            conexao.execute(text("ALTER TABLE itens_composicao ADD COLUMN grupo_id INTEGER"))
+        # itens antigos, sem grupo: cada um vira um grupo com uma avaliação (mesmo resultado)
+        for item_id, composicao_id, nome, valor, ordem in conexao.execute(
+            text("SELECT id, composicao_id, nome, valor_maximo, ordem FROM itens_composicao WHERE grupo_id IS NULL")
+        ).all():
+            grupo_id = conexao.execute(
+                GrupoComposicao.__table__.insert()
+                .values(composicao_id=composicao_id, nome=nome, valor=valor, calculo="soma", ordem=ordem)
+                .returning(GrupoComposicao.__table__.c.id)
+            ).scalar_one()
+            conexao.execute(text("UPDATE itens_composicao SET grupo_id = :g WHERE id = :i"), {"g": grupo_id, "i": item_id})
+
+
 def criar_sessoes(banco_url: str) -> sessionmaker:
     engine = create_engine(normalizar_url(banco_url), pool_pre_ping=True)
     Base.metadata.create_all(engine)
+    migrar(engine)
     return sessionmaker(engine, expire_on_commit=False)

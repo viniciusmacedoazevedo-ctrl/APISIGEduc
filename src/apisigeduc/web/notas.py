@@ -3,6 +3,7 @@ turmas, lançar as notas por item e enviar as médias ao SIGEduc."""
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from types import SimpleNamespace
 
@@ -20,21 +21,36 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
     pagina, avisar, voltar, verificar_csrf = ctx.pagina, ctx.avisar, ctx.voltar, ctx.verificar_csrf
     usuario_logado = ctx.usuario_logado
 
-    def composicao_permitida(composicao_id: int, usuario: Usuario):
+    def composicao_permitida(composicao_id: int, usuario: Usuario) -> comp.Estrutura:
         try:
-            composicao, itens = comp.obter(sessoes, composicao_id)
+            estrutura = comp.obter(sessoes, composicao_id)
         except LookupError:
             raise HTTPException(404, "Composição não encontrada") from None
-        if composicao.usuario_id != usuario.id and not usuario.admin:
+        if estrutura.composicao.usuario_id != usuario.id and not usuario.admin:
             raise HTTPException(404, "Composição não encontrada")
-        return composicao, itens
+        return estrutura
 
     def turma_aplicada(composicao_id: int, turma_id: int, usuario: Usuario):
-        composicao, itens = composicao_permitida(composicao_id, usuario)
+        estrutura = composicao_permitida(composicao_id, usuario)
         turma = ctx.turma_permitida(turma_id, usuario)
         if turma.id not in {t.id for _, t in comp.turmas_aplicadas(sessoes, composicao_id)}:
             raise HTTPException(404, "A composição não foi aplicada nesta turma")
-        return composicao, itens, turma
+        return estrutura, turma
+
+    def ler_estrutura(texto: str) -> list[comp.GrupoNovo]:
+        """JSON da tela: [{nome, valor, calculo, avaliacoes: [{nome, valor, padrao}]}]."""
+        try:
+            dados = json.loads(texto or "[]")
+        except json.JSONDecodeError:
+            raise ValueError("Estrutura da composição inválida") from None
+        grupos = []
+        for g in dados:
+            avaliacoes = [
+                comp.AvaliacaoNova(str(a.get("nome", "")), comp.ler_numero(a.get("valor")) or 0, comp.ler_numero(a.get("padrao")))
+                for a in g.get("avaliacoes", [])
+            ]
+            grupos.append(comp.GrupoNovo(str(g.get("nome", "")), comp.ler_numero(g.get("valor")) or 0, str(g.get("calculo", "soma")), avaliacoes))
+        return grupos
 
     @app.get("/notas", response_class=HTMLResponse)
     def tela_composicoes(request: Request, usuario: Usuario = Depends(usuario_logado)):
@@ -54,23 +70,13 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
         ano_letivo: int = Form(...),
         bimestre: int = Form(...),
         calculo: str = Form("soma"),
-        item_nome: list[str] = Form([]),
-        item_valor: list[str] = Form([]),
-        item_padrao: list[str] = Form([]),
+        estrutura: str = Form("[]"),
         csrf_token: str = Form(""),
         usuario: Usuario = Depends(usuario_logado),
     ):
         verificar_csrf(request, csrf_token)
         try:
-            itens = []
-            for nome_item, valor, padrao in zip(item_nome, item_valor, item_padrao):
-                if not nome_item.strip() and not valor.strip():
-                    continue  # linha em branco
-                maximo = comp.ler_numero(valor)
-                if maximo is None:
-                    raise ValueError(f"{nome_item or 'item'}: informe quanto o item vale")
-                itens.append(comp.ItemNovo(nome_item, maximo, comp.ler_numero(padrao)))
-            composicao_id = comp.criar(sessoes, usuario.id, nome, ano_letivo, bimestre, calculo, itens)
+            composicao_id = comp.criar(sessoes, usuario.id, nome, ano_letivo, bimestre, calculo, ler_estrutura(estrutura))
         except ValueError as e:
             avisar(request, str(e), "erro")
             return voltar("/notas")
@@ -79,7 +85,8 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
 
     @app.get("/notas/{composicao_id}", response_class=HTMLResponse)
     def tela_composicao(request: Request, composicao_id: int, usuario: Usuario = Depends(usuario_logado)):
-        composicao, itens = composicao_permitida(composicao_id, usuario)
+        estrutura = composicao_permitida(composicao_id, usuario)
+        composicao = estrutura.composicao
         aplicadas = comp.turmas_aplicadas(sessoes, composicao_id)
         progresso = {}
         for _, turma in aplicadas:
@@ -92,13 +99,48 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             "composicao.html",
             usuario,
             composicao=composicao,
-            itens=itens,
+            estrutura=estrutura,
             aplicadas=aplicadas,
             progresso=progresso,
             disponiveis=disponiveis,
-            total=comp.total_maximo(composicao.calculo, itens),
             CALCULOS=comp.CALCULOS,
         )
+
+    @app.post("/notas/{composicao_id}/avaliacoes")
+    def adicionar_avaliacao(
+        request: Request,
+        composicao_id: int,
+        grupo_id: int = Form(...),
+        nome: str = Form(""),
+        valor: str = Form(""),
+        padrao: str = Form(""),
+        csrf_token: str = Form(""),
+        usuario: Usuario = Depends(usuario_logado),
+    ):
+        verificar_csrf(request, csrf_token)
+        composicao_permitida(composicao_id, usuario)
+        try:
+            maximo = comp.ler_numero(valor)
+            if maximo is None:
+                raise ValueError("Informe quanto a avaliação vale")
+            comp.adicionar_avaliacao(sessoes, composicao_id, grupo_id, comp.AvaliacaoNova(nome, maximo, comp.ler_numero(padrao)))
+            avisar(request, f"Avaliação {nome.strip()} incluída.")
+        except (ValueError, LookupError) as e:
+            avisar(request, str(e), "erro")
+        return voltar(f"/notas/{composicao_id}")
+
+    @app.post("/notas/{composicao_id}/avaliacoes/{item_id}/remover")
+    def remover_avaliacao(
+        request: Request, composicao_id: int, item_id: int, csrf_token: str = Form(""), usuario: Usuario = Depends(usuario_logado)
+    ):
+        verificar_csrf(request, csrf_token)
+        composicao_permitida(composicao_id, usuario)
+        try:
+            comp.remover_avaliacao(sessoes, composicao_id, item_id)
+            avisar(request, "Avaliação removida, com as notas lançadas nela.")
+        except (ValueError, LookupError) as e:
+            avisar(request, str(e), "erro")
+        return voltar(f"/notas/{composicao_id}")
 
     @app.post("/notas/{composicao_id}/turmas")
     def aplicar_turmas(
@@ -109,7 +151,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
         usuario: Usuario = Depends(usuario_logado),
     ):
         verificar_csrf(request, csrf_token)
-        composicao, _ = composicao_permitida(composicao_id, usuario)
+        composicao_permitida(composicao_id, usuario)
         ids = [ctx.turma_permitida(t, usuario).id for t in turma_id]
         if not ids:
             avisar(request, "Marque pelo menos uma turma.", "erro")
@@ -148,18 +190,25 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
     # --- lançamento por turma ----------------------------------------------
     @app.get("/notas/{composicao_id}/turmas/{turma_id}", response_class=HTMLResponse)
     def tela_lancamento(request: Request, composicao_id: int, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
-        composicao, itens, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        estrutura, turma = turma_aplicada(composicao_id, turma_id, usuario)
         linhas = comp.planilha(sessoes, composicao_id, turma_id)
+        regras = {
+            "calculo": estrutura.composicao.calculo,
+            "grupos": [
+                {"id": g.grupo.id, "valor": g.grupo.valor, "calculo": g.grupo.calculo, "avaliacoes": [a.id for a in g.avaliacoes]}
+                for g in estrutura.grupos
+            ],
+        }
         return pagina(
             request,
             "lancamento.html",
             usuario,
-            composicao=composicao,
-            itens=itens,
+            composicao=estrutura.composicao,
+            estrutura=estrutura,
+            regras=regras,
             turma=turma,
             linhas=linhas,
             completos=sum(1 for l in linhas if l.media is not None),
-            total=comp.total_maximo(composicao.calculo, itens),
         )
 
     @app.post("/notas/{composicao_id}/turmas/{turma_id}")
@@ -191,7 +240,8 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
 
     @app.get("/notas/{composicao_id}/turmas/{turma_id}/medias.csv")
     def baixar_medias(composicao_id: int, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
-        composicao, _, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        estrutura, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        composicao = estrutura.composicao
         dados = comp.csv_medias(composicao, turma, comp.planilha(sessoes, composicao_id, turma_id))
         return Response(
             dados,
@@ -209,7 +259,8 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
         usuario: Usuario = Depends(usuario_logado),
     ):
         verificar_csrf(request, csrf_token)
-        composicao, _, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        estrutura, turma = turma_aplicada(composicao_id, turma_id, usuario)
+        composicao = estrutura.composicao
         destino = f"/notas/{composicao_id}/turmas/{turma_id}"
         if repo.dados_credencial(usuario.id) is None:
             avisar(request, "Cadastre sua senha do SIGEduc antes de enviar as médias.", "erro")

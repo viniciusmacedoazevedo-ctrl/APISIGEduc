@@ -2,39 +2,37 @@
 {% block titulo %}Notas{% endblock %}
 {% block conteudo %}
 <div class="cartao">
-  <h2>Nova composição de notas</h2>
-  <p class="suave">Monte como a nota do bimestre é formada. Depois aplique em uma ou várias turmas —
+  <h2>Nova composição de notas do bimestre</h2>
+  <p class="suave">Monte como a média do bimestre é formada. Depois aplique em uma ou várias turmas —
     a mesma composição serve para o 6º A e o 6º B, por exemplo. No SIGEduc entra só a média.</p>
-  <form method="post" action="/notas">
+  <form method="post" action="/notas" id="form-composicao">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <input type="hidden" name="estrutura" id="estrutura">
     <div class="grade">
       <div><label for="nome">Nome</label><input type="text" id="nome" name="nome" required placeholder="Ex.: 3º bimestre - 6º anos"></div>
       <div><label for="bimestre">Bimestre</label>
         <select id="bimestre" name="bimestre">{% for n, rotulo in BIMESTRES.items() %}<option value="{{ n }}">{{ rotulo }}</option>{% endfor %}</select></div>
       <div><label for="ano_letivo">Ano letivo</label><input type="text" id="ano_letivo" name="ano_letivo" value="{{ ano }}" inputmode="numeric"></div>
-      <div><label for="calculo">Como calcular a média</label>
-        <select id="calculo" name="calculo">{% for v, rotulo in CALCULOS.items() %}<option value="{{ v }}">{{ rotulo }}</option>{% endfor %}</select></div>
     </div>
 
-    <label style="margin-top:18px">Itens da nota</label>
-    <div class="tabela"><table class="itens" id="itens">
-      <tr><th>Item</th><th>Vale (pontos)</th><th>Nota para todos <span class="suave">(opcional)</span></th></tr>
-      {% for i in range(4) %}
-      <tr>
-        <td><input type="text" name="item_nome" list="sugestoes" placeholder="{{ ['Trabalho', 'Teste', 'Prova', 'Atividade'][i] }}"></td>
-        <td><input type="text" name="item_valor" inputmode="decimal" placeholder="{{ ['2', '3', '5', ''][i] }}"></td>
-        <td><input type="text" name="item_padrao" inputmode="decimal" placeholder="—"></td>
-      </tr>
-      {% endfor %}
-    </table></div>
-    <datalist id="sugestoes"><option>Trabalho</option><option>Teste</option><option>Prova</option><option>Avaliação</option><option>Atividade</option><option>Participação</option><option>Seminário</option><option>Recuperação</option></datalist>
-    <p class="suave" id="total"></p>
-    <p class="suave">"Nota para todos": use quando todos os alunos tiraram a mesma nota no item (ex.: um trabalho
-      em grupo valendo 2). Ela é lançada para todos ao aplicar a composição, e você pode ajustar aluno por aluno depois.</p>
-    <div class="botoes">
-      <button type="button" class="botao secundario" id="mais">+ Item</button>
-      <button class="botao">Criar composição</button>
+    <label>Começar de um modelo</label>
+    <div class="botoes" style="margin-top:4px" id="modelos"></div>
+
+    <label style="margin-top:18px" for="calculo">A média do bimestre é</label>
+    <select id="calculo" name="calculo" style="max-width:340px">
+      <option value="soma">a soma dos grupos (ex.: 4 + 2 + 4)</option>
+      <option value="media">a média dos grupos (ex.: (10 + 10) / 2)</option>
+    </select>
+
+    <div id="grupos"></div>
+    <div class="botoes"><button type="button" class="botao secundario" id="novo-grupo">+ Grupo (Trabalho, Teste, Prova...)</button></div>
+
+    <div class="cartao" style="background:#f7f8fa;margin:18px 0 0">
+      <strong>Como a média será calculada</strong>
+      <div id="formula" style="margin-top:6px"></div>
+      <div id="avisos-formula" class="suave" style="color:var(--amarelo)"></div>
     </div>
+    <div class="botoes"><button class="botao">Criar composição</button></div>
   </form>
 </div>
 
@@ -42,12 +40,12 @@
   <h2>Minhas composições</h2>
   {% if composicoes %}
   <div class="tabela"><table>
-    <tr><th>Composição</th><th>Bimestre</th><th>Itens</th><th>Turmas</th></tr>
-    {% for c, itens, n in composicoes %}
+    <tr><th>Composição</th><th>Bimestre</th><th>Como calcula</th><th>Turmas</th></tr>
+    {% for e, n in composicoes %}
     <tr>
-      <td><a href="/notas/{{ c.id }}"><strong>{{ c.nome }}</strong></a></td>
-      <td>{{ BIMESTRES[c.bimestre] }} de {{ c.ano_letivo }}</td>
-      <td>{% for i in itens %}<span class="chip">{{ i.nome }} ({{ i.valor_maximo|num }})</span>{% endfor %}</td>
+      <td><a href="/notas/{{ e.composicao.id }}"><strong>{{ e.composicao.nome }}</strong></a></td>
+      <td>{{ BIMESTRES[e.composicao.bimestre] }} de {{ e.composicao.ano_letivo }}</td>
+      <td class="suave">{% for linha in e.formula() %}{{ linha }}<br>{% endfor %}</td>
       <td>{{ n }}</td>
     </tr>
     {% endfor %}
@@ -55,20 +53,128 @@
   {% else %}<p class="suave">Nenhuma composição ainda.</p>{% endif %}
 </div>
 
+<style>
+  .grupo { border:1px solid var(--borda); border-radius:8px; padding:12px 14px; margin-top:14px; }
+  .grupo .topo { display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:10px; align-items:end; }
+  .grupo .topo label { margin-top:0; }
+  .grupo table input { padding:6px 8px; }
+  .remover { background:none; border:0; color:var(--vermelho); cursor:pointer; font:inherit; padding:6px; }
+  @media (max-width: 640px) { .grupo .topo { grid-template-columns:1fr 1fr; } }
+</style>
 <script>
-  const tabela = document.getElementById('itens');
-  document.getElementById('mais').onclick = () => {
-    const nova = tabela.rows[1].cloneNode(true);
-    nova.querySelectorAll('input').forEach((i) => { i.value = ''; i.placeholder = i.name === 'item_padrao' ? '—' : ''; });
-    tabela.tBodies[0].appendChild(nova);
+(() => {
+  const num = (t) => { const v = parseFloat(String(t ?? '').replace(',', '.')); return isNaN(v) ? 0 : v; };
+  const fmt = (v) => (Math.round(v * 100) / 100).toLocaleString('pt-BR');
+  const aval = (nome, valor, padrao = '') => ({ nome, valor: String(valor), padrao });
+  const grupo = (nome, valor, calculo = 'soma', avaliacoes = null) =>
+    ({ nome, valor: String(valor), calculo, avaliacoes: avaliacoes || [aval(nome, valor)] });
+
+  const MODELOS = {
+    'Prova única (10)': ['soma', [grupo('Prova', 10)]],
+    'Teste 10 + Prova 10 (média)': ['media', [grupo('Teste', 10), grupo('Prova', 10)]],
+    'Teste 5 + Prova 5 (soma)': ['soma', [grupo('Teste', 5), grupo('Prova', 5)]],
+    'Trabalho 4 + Teste 2 + Prova 4': ['soma', [grupo('Trabalho', 4), grupo('Teste', 2), grupo('Prova', 4)]],
+    'Trabalhos 1, 2, 3 + Teste + Prova': ['soma', [
+      grupo('Trabalho', 4, 'soma', [aval('Trabalho 1', 1), aval('Trabalho 2', 1), aval('Trabalho 3', 2)]),
+      grupo('Teste', 2), grupo('Prova', 4)]],
+    'Teste e Prova com Av1 e Av2': ['media', [
+      grupo('Teste', 10, 'media', [aval('Teste - Av1', 10), aval('Teste - Av2', 10)]),
+      grupo('Prova', 10, 'media', [aval('Prova - Av1', 10), aval('Prova - Av2', 10)])]],
   };
-  const atualizar = () => {
-    const soma = [...document.getElementsByName('item_valor')].reduce((t, i) => t + (parseFloat(i.value.replace(',', '.')) || 0), 0);
-    const calculo = document.getElementById('calculo').value;
-    document.getElementById('total').textContent = calculo === 'soma'
-      ? `Total dos itens: ${soma.toLocaleString('pt-BR')} de 10 pontos` + (soma && soma !== 10 ? ' — atenção: não soma 10' : '')
-      : 'Cada item é convertido para 0 a 10 e a média é a média deles.';
-  };
-  document.addEventListener('input', atualizar); document.getElementById('calculo').onchange = atualizar; atualizar();
+
+  let estado = { calculo: 'soma', grupos: [grupo('Prova', 10)] };
+  const caixa = document.getElementById('grupos');
+  const calculoMedia = document.getElementById('calculo');
+
+  function el(tag, props = {}, filhos = []) {
+    const e = document.createElement(tag);
+    Object.entries(props).forEach(([k, v]) => (k === 'on' ? Object.entries(v).forEach(([ev, f]) => e.addEventListener(ev, f)) : (e[k] = v)));
+    [].concat(filhos).forEach((f) => e.append(f));
+    return e;
+  }
+  const campo = (rotulo, valor, aoMudar, extra = {}) =>
+    el('div', {}, [el('label', { textContent: rotulo }), el('input', { type: 'text', value: valor, ...extra, on: { input: (ev) => { aoMudar(ev.target.value); resumir(); } } })]);
+
+  function desenhar() {
+    calculoMedia.value = estado.calculo;
+    caixa.replaceChildren(...estado.grupos.map((g, gi) => {
+      const varias = g.avaliacoes.length > 1;
+      const topo = el('div', { className: 'topo' }, [
+        campo('Grupo', g.nome, (v) => { g.nome = v; if (!varias) g.avaliacoes[0].nome = v; }, { placeholder: 'Ex.: Trabalho', list: 'sugestoes' }),
+        campo('Vale (na média)', g.valor, (v) => { g.valor = v; if (!varias) g.avaliacoes[0].valor = v; }, { inputmode: 'decimal' }),
+        varias
+          ? el('div', {}, [el('label', { textContent: 'Avaliações combinadas por' }),
+              el('select', { on: { change: (ev) => { g.calculo = ev.target.value; ajustarValores(g); desenhar(); } } },
+                [el('option', { value: 'soma', textContent: 'soma', selected: g.calculo === 'soma' }),
+                 el('option', { value: 'media', textContent: 'média', selected: g.calculo === 'media' })])])
+          : campo('Nota para todos (opcional)', g.avaliacoes[0].padrao, (v) => { g.avaliacoes[0].padrao = v; }, { inputmode: 'decimal', placeholder: '—' }),
+        el('button', { type: 'button', className: 'remover', textContent: 'Remover grupo', on: { click: () => { estado.grupos.splice(gi, 1); desenhar(); } } }),
+      ]);
+      const partes = [topo];
+      if (varias) {
+        partes.push(el('div', { className: 'tabela' }, el('table', {}, [
+          el('tr', {}, ['Avaliação', g.calculo === 'soma' ? 'Vale (pontos)' : 'Vale (nota máxima)', 'Nota para todos (opcional)', ''].map((t) => el('th', { textContent: t }))),
+          ...g.avaliacoes.map((a, ai) => el('tr', {}, [
+            el('td', {}, el('input', { type: 'text', value: a.nome, on: { input: (ev) => { a.nome = ev.target.value; resumir(); } } })),
+            el('td', {}, el('input', { type: 'text', value: a.valor, inputmode: 'decimal', on: { input: (ev) => { a.valor = ev.target.value; resumir(); } } })),
+            el('td', {}, el('input', { type: 'text', value: a.padrao, inputmode: 'decimal', placeholder: '—', on: { input: (ev) => { a.padrao = ev.target.value; } } })),
+            el('td', {}, el('button', { type: 'button', className: 'remover', textContent: '✕', title: 'Remover avaliação',
+              on: { click: () => { g.avaliacoes.splice(ai, 1); if (g.avaliacoes.length === 1) Object.assign(g.avaliacoes[0], { nome: g.nome, valor: g.valor }); desenhar(); } } })),
+          ])),
+        ])));
+      }
+      partes.push(el('div', { className: 'botoes', style: 'margin-top:8px' }, el('button', {
+        type: 'button', className: 'botao secundario pequeno',
+        textContent: varias ? '+ Avaliação' : `Dividir ${g.nome || 'o grupo'} em várias avaliações`,
+        on: { click: () => {
+          if (!varias) g.avaliacoes = [aval(`${g.nome} 1`, g.valor)];
+          g.avaliacoes.push(aval(`${g.nome} ${g.avaliacoes.length + 1}`, ''));
+          ajustarValores(g); desenhar();
+        } },
+      })));
+      return el('div', { className: 'grupo' }, partes);
+    }));
+    resumir();
+  }
+
+  // valores sugeridos: na soma, divide o valor do grupo; na média, cada uma vale o grupo
+  function ajustarValores(g) {
+    const n = g.avaliacoes.length;
+    g.avaliacoes.forEach((a) => { a.valor = String(g.calculo === 'soma' ? Math.round(num(g.valor) / n * 100) / 100 : num(g.valor)); });
+  }
+
+  function resumir() {
+    const juntar = (calc, partes) => calc === 'soma' ? partes.join(' + ') : `média de ${partes.join(', ')}`;
+    const linhas = [`Média = ${juntar(estado.calculo, estado.grupos.map((g) => `${g.nome || '?'} (${fmt(num(g.valor))})`))}`];
+    const avisos = [];
+    estado.grupos.forEach((g) => {
+      if (g.avaliacoes.length > 1) {
+        linhas.push(`${g.nome || '?'} = ${juntar(g.calculo, g.avaliacoes.map((a) => `${a.nome || '?'} (${fmt(num(a.valor))})`))}`);
+        if (g.calculo === 'soma') {
+          const s = g.avaliacoes.reduce((t, a) => t + num(a.valor), 0);
+          if (Math.abs(s - num(g.valor)) > 1e-9) avisos.push(`${g.nome}: as avaliações somam ${fmt(s)} de ${fmt(num(g.valor))}.`);
+        }
+      }
+    });
+    if (estado.calculo === 'soma') {
+      const s = estado.grupos.reduce((t, g) => t + num(g.valor), 0);
+      if (Math.abs(s - 10) > 1e-9) avisos.push(`Os grupos somam ${fmt(s)} pontos (o normal é 10).`);
+    }
+    document.getElementById('formula').replaceChildren(...linhas.map((l) => el('div', { textContent: l })));
+    document.getElementById('avisos-formula').replaceChildren(...avisos.map((l) => el('div', { textContent: '⚠ ' + l })));
+  }
+
+  calculoMedia.addEventListener('change', () => { estado.calculo = calculoMedia.value; resumir(); });
+  document.getElementById('novo-grupo').onclick = () => { estado.grupos.push(grupo('', '')); desenhar(); };
+  Object.entries(MODELOS).forEach(([nome, [calculo, grupos]]) => document.getElementById('modelos').append(
+    el('button', { type: 'button', className: 'botao secundario pequeno', textContent: nome,
+      on: { click: () => { estado = { calculo, grupos: structuredClone(grupos) }; desenhar(); } } })));
+  document.getElementById('form-composicao').addEventListener('submit', () => {
+    estado.grupos.forEach((g) => { if (g.avaliacoes.length === 1) Object.assign(g.avaliacoes[0], { nome: g.nome, valor: g.valor }); });
+    document.getElementById('estrutura').value = JSON.stringify(estado.grupos);
+  });
+  desenhar();
+})();
 </script>
+<datalist id="sugestoes"><option>Trabalho</option><option>Teste</option><option>Prova</option><option>Avaliação</option><option>Atividade</option><option>Participação</option><option>Seminário</option><option>Recuperação</option></datalist>
 {% endblock %}

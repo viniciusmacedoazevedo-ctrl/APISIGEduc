@@ -3,12 +3,46 @@
 {% block conteudo %}
 <div class="cartao">
   <h1>{{ composicao.nome }}</h1>
-  <p class="suave">{{ BIMESTRES[composicao.bimestre] }} de {{ composicao.ano_letivo }} · {{ CALCULOS[composicao.calculo] }}</p>
-  <div class="tabela"><table>
-    <tr><th>Item</th><th>Vale</th><th>Nota para todos</th></tr>
-    {% for i in itens %}<tr><td>{{ i.nome }}</td><td>{{ i.valor_maximo|num }}</td><td>{{ i.nota_padrao|num or "—" }}</td></tr>{% endfor %}
-    <tr><th>{{ "Total" if composicao.calculo == "soma" else "Média máxima" }}</th><th>{{ total|num }}</th><th></th></tr>
+  <p class="suave">{{ BIMESTRES[composicao.bimestre] }} de {{ composicao.ano_letivo }}</p>
+  <div style="background:#f7f8fa;border-radius:8px;padding:10px 14px">
+    {% for linha in estrutura.formula() %}<div>{{ linha }}</div>{% endfor %}
+  </div>
+  {% for aviso in estrutura.avisos() %}<p class="suave" style="color:var(--amarelo)">⚠ {{ aviso }}</p>{% endfor %}
+
+  <div class="tabela" style="margin-top:12px"><table>
+    <tr><th>Grupo</th><th>Vale</th><th>Avaliação</th><th>Vale</th><th>Nota para todos</th><th></th></tr>
+    {% for g in estrutura.grupos %}
+      {% for a in g.avaliacoes %}
+      <tr>
+        {% if loop.first %}
+        <td rowspan="{{ g.avaliacoes|length }}"><strong>{{ g.grupo.nome }}</strong>{% if g.avaliacoes|length > 1 %}<br><span class="suave">{{ CALCULOS[g.grupo.calculo]|lower }} das avaliações</span>{% endif %}</td>
+        <td rowspan="{{ g.avaliacoes|length }}">{{ g.grupo.valor|num }}</td>
+        {% endif %}
+        <td>{{ a.nome }}</td>
+        <td>{{ a.valor_maximo|num }}</td>
+        <td>{{ a.nota_padrao|num or "—" }}</td>
+        <td>
+          <form method="post" action="/notas/{{ composicao.id }}/avaliacoes/{{ a.id }}/remover" style="margin:0"
+                onsubmit="return confirm('Remover {{ a.nome }} e as notas lançadas nela?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <button class="remover" title="Remover avaliação" style="background:none;border:0;color:var(--vermelho);cursor:pointer">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
   </table></div>
+
+  <h2 style="margin-top:18px">Incluir avaliação no bimestre</h2>
+  <p class="suave">Ex.: o Trabalho 3 decidido no meio do mês. Se tiver nota para todos, ela já é lançada nas turmas.</p>
+  <form class="linha" method="post" action="/notas/{{ composicao.id }}/avaliacoes">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <select name="grupo_id">{% for g in estrutura.grupos %}<option value="{{ g.grupo.id }}">{{ g.grupo.nome }}</option>{% endfor %}</select>
+    <input type="text" name="nome" required placeholder="Nome (ex.: Trabalho 3)" style="min-width:200px">
+    <input type="text" name="valor" required placeholder="Vale" inputmode="decimal" style="width:90px">
+    <input type="text" name="padrao" placeholder="Nota p/ todos" inputmode="decimal" style="width:120px">
+    <button class="botao secundario">Incluir</button>
+  </form>
 </div>
 
 <div class="cartao">

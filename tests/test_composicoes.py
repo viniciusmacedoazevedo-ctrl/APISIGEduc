@@ -1,3 +1,4 @@
+import json
 import re
 
 import pytest
@@ -28,34 +29,128 @@ def cenario(repo, sessoes):
     return prof, turmas
 
 
-def _composicao(sessoes, prof, calculo="soma"):
-    return comp.criar(
-        sessoes,
-        prof.id,
-        "3º bimestre - 6º anos",
-        2026,
-        3,
-        calculo,
-        [comp.ItemNovo("Trabalho", 2, 2), comp.ItemNovo("Teste", 3), comp.ItemNovo("Prova", 5)],
+A, G = comp.AvaliacaoNova, comp.GrupoNovo
+
+
+def _composicao(sessoes, prof, calculo="soma", grupos=None):
+    grupos = grupos or [G("Trabalho", 2, avaliacoes=[A("Trabalho", 2, 2)]), G("Teste", 3, avaliacoes=[A("Teste", 3)]), G("Prova", 5, avaliacoes=[A("Prova", 5)])]
+    return comp.criar(sessoes, prof.id, "3º bimestre - 6º anos", 2026, 3, calculo, grupos)
+
+
+def _media(sessoes, prof, turma, calculo, grupos, notas_por_nome):
+    """Cria a composição, lança as notas de um aluno pelo nome da avaliação e devolve a linha."""
+    cid = _composicao(sessoes, prof, calculo, grupos)
+    comp.aplicar(sessoes, cid, [turma.id])
+    estrutura = comp.obter(sessoes, cid)
+    ids = {a.nome: a.id for a in estrutura.avaliacoes}
+    comp.salvar_notas(sessoes, cid, turma.id, {(ids[n], "202630115378"): v for n, v in notas_por_nome.items()})
+    [linha] = comp.planilha(sessoes, cid, turma.id)
+    return linha, estrutura
+
+
+# Os exemplos do professor, um a um
+def test_prova_unica_valendo_10(sessoes, cenario):
+    prof, turmas = cenario
+    linha, e = _media(sessoes, prof, turmas["EFM6B"], "soma", [G("Prova", 10, avaliacoes=[A("Prova", 10)])], {"Prova": "7,5"})
+    assert linha.media == 7.5
+    assert e.formula() == ["Média = Prova (10)"] and e.avisos() == []
+
+
+def test_teste_10_e_prova_10_media_e_a_soma_dividida_por_2(sessoes, cenario):
+    prof, turmas = cenario
+    grupos = [G("Teste", 10, avaliacoes=[A("Teste", 10)]), G("Prova", 10, avaliacoes=[A("Prova", 10)])]
+    linha, e = _media(sessoes, prof, turmas["EFM6B"], "media", grupos, {"Teste": "6", "Prova": "9"})
+    assert linha.media == 7.5
+    assert e.formula() == ["Média = média de Teste (10), Prova (10)"]
+
+
+def test_teste_5_e_prova_5_media_e_a_soma(sessoes, cenario):
+    prof, turmas = cenario
+    grupos = [G("Teste", 5, avaliacoes=[A("Teste", 5)]), G("Prova", 5, avaliacoes=[A("Prova", 5)])]
+    linha, _ = _media(sessoes, prof, turmas["EFM6B"], "soma", grupos, {"Teste": "4", "Prova": "3,5"})
+    assert linha.media == 7.5
+
+
+def test_trabalho_4_teste_2_prova_4(sessoes, cenario):
+    prof, turmas = cenario
+    grupos = [G("Trabalho", 4, avaliacoes=[A("Trabalho", 4)]), G("Teste", 2, avaliacoes=[A("Teste", 2)]), G("Prova", 4, avaliacoes=[A("Prova", 4)])]
+    linha, _ = _media(sessoes, prof, turmas["EFM6B"], "soma", grupos, {"Trabalho": "4", "Teste": "1,5", "Prova": "3"})
+    assert linha.media == 8.5
+
+
+def test_trabalho_com_varios_trabalhos(sessoes, cenario):
+    prof, turmas = cenario
+    grupos = [
+        G("Trabalho", 4, "soma", [A("Trabalho 1", 1), A("Trabalho 2", 1), A("Trabalho 3", 2)]),
+        G("Teste", 2, avaliacoes=[A("Teste", 2)]),
+        G("Prova", 4, avaliacoes=[A("Prova", 4)]),
+    ]
+    linha, e = _media(
+        sessoes, prof, turmas["EFM6B"], "soma", grupos,
+        {"Trabalho 1": "1", "Trabalho 2": "0,5", "Trabalho 3": "2", "Teste": "2", "Prova": "3"},
     )
+    trabalho = e.grupos[0].grupo.id
+    assert linha.grupos[trabalho] == 3.5 and linha.media == 8.5
+    assert e.formula() == ["Média = Trabalho (4) + Teste (2) + Prova (4)", "Trabalho = Trabalho 1 (1) + Trabalho 2 (1) + Trabalho 3 (2)"]
+
+
+def test_teste_e_prova_com_av1_e_av2(sessoes, cenario):
+    prof, turmas = cenario
+    grupos = [
+        G("Teste", 10, "media", [A("Teste - Av1", 10), A("Teste - Av2", 10)]),
+        G("Prova", 10, "media", [A("Prova - Av1", 10), A("Prova - Av2", 10)]),
+    ]
+    linha, e = _media(
+        sessoes, prof, turmas["EFM6B"], "media", grupos,
+        {"Teste - Av1": "6", "Teste - Av2": "8", "Prova - Av1": "9", "Prova - Av2": "10"},
+    )
+    assert [linha.grupos[g.grupo.id] for g in e.grupos] == [7.0, 9.5]
+    assert linha.media == 8.3  # (7 + 9,5) / 2 = 8,25
+
+
+def test_falta_uma_avaliacao_sem_media(sessoes, cenario):
+    prof, turmas = cenario
+    grupos = [G("Trabalho", 4, "soma", [A("Trabalho 1", 2), A("Trabalho 2", 2)]), G("Prova", 6, avaliacoes=[A("Prova", 6)])]
+    linha, _ = _media(sessoes, prof, turmas["EFM6B"], "soma", grupos, {"Trabalho 1": "2", "Prova": "5"})
+    assert linha.media is None
 
 
 def test_validacoes():
     with pytest.raises(ValueError, match="não podem passar de 10"):
-        comp.criar(None, 1, "x", 2026, 3, "soma", [comp.ItemNovo("A", 6), comp.ItemNovo("B", 5)])
+        comp.validar_estrutura("soma", [G("A", 6, avaliacoes=[A("A", 6)]), G("B", 5, avaliacoes=[A("B", 5)])])
+    with pytest.raises(ValueError, match="mais que os 4 do grupo"):
+        G("Trabalho", 4, "soma", [A("T1", 3), A("T2", 3)]).validar()
     with pytest.raises(ValueError, match="nota para todos"):
-        comp.ItemNovo("Trabalho", 2, 3).validar()
-    with pytest.raises(ValueError, match="Bimestre"):
-        comp.criar(None, 1, "x", 2026, 5, "soma", [comp.ItemNovo("A", 10)])
+        G("Trabalho", 2, avaliacoes=[A("Trabalho", 2, 3)]).validar()
+    with pytest.raises(ValueError, match="pelo menos uma avaliação"):
+        G("Prova", 10).validar()
     assert comp.arredondar(7.25) == 7.3 and comp.arredondar(7.24) == 7.2
 
 
-def test_soma_media_e_nota_para_todos(sessoes, cenario):
+def test_incluir_trabalho_3_no_meio_do_bimestre(sessoes, cenario):
+    prof, turmas = cenario
+    grupos = [G("Trabalho", 4, "soma", [A("Trabalho 1", 2)]), G("Prova", 6, avaliacoes=[A("Prova", 6)])]
+    cid = _composicao(sessoes, prof, "soma", grupos)
+    e = comp.obter(sessoes, cid)
+    assert e.avisos() == ["Trabalho: as avaliações somam 2 de 4 — faltam 2 ponto(s) (inclua outra avaliação quando planejar)."]
+    comp.aplicar(sessoes, cid, [turmas["EFM6B"].id])
+    trabalho = e.grupos[0].grupo.id
+    comp.adicionar_avaliacao(sessoes, cid, trabalho, A("Trabalho 2", 2, 1.5))  # nota para todos
+    e = comp.obter(sessoes, cid)
+    assert [a.nome for a in e.avaliacoes] == ["Trabalho 1", "Trabalho 2", "Prova"] and e.avisos() == []
+    [linha] = comp.planilha(sessoes, cid, turmas["EFM6B"].id)
+    assert linha.notas == {e.avaliacoes[1].id: 1.5}
+    with pytest.raises(ValueError, match="mais que os 4"):
+        comp.adicionar_avaliacao(sessoes, cid, trabalho, A("Trabalho 3", 1))
+    comp.remover_avaliacao(sessoes, cid, e.avaliacoes[1].id)
+    assert [a.nome for a in comp.obter(sessoes, cid).avaliacoes] == ["Trabalho 1", "Prova"]
+
+
+def test_nota_para_todos_e_ajuste_individual(sessoes, cenario):
     prof, turmas = cenario
     cid = _composicao(sessoes, prof)
     comp.aplicar(sessoes, cid, [turmas["EFV6A"].id, turmas["EFM6B"].id])
-    _, itens = comp.obter(sessoes, cid)
-    trabalho, teste, prova = itens
+    trabalho, teste, prova = comp.obter(sessoes, cid).avaliacoes
 
     linhas = comp.planilha(sessoes, cid, turmas["EFV6A"].id)
     assert all(l.notas == {trabalho.id: 2} and l.media is None for l in linhas)  # trabalho para todos
@@ -68,28 +163,25 @@ def test_soma_media_e_nota_para_todos(sessoes, cenario):
             (teste.id, "202630270867"): "2,5",
             (prova.id, "202630270867"): "4,25",
             (teste.id, "202630441436"): "3",
-            (prova.id, "202630441436"): "7",  # passa do valor do item
+            (prova.id, "202630441436"): "7",  # passa do valor
             (trabalho.id, "202630441436"): "1",
         },
     )
     assert erros == ["WESLEY VARELA PEREIRA DA SILVA — Prova: deve ficar entre 0 e 5"]
     ivan, wesley = sorted(comp.planilha(sessoes, cid, turmas["EFV6A"].id), key=lambda l: l.nome)
-    assert ivan.media == 8.8  # 2 + 2,5 + 4,25 = 8,75 -> 8,8
-    assert wesley.notas[trabalho.id] == 1 and wesley.media is None  # prova inválida não gravou
+    assert ivan.media == 8.8  # 2 + 2,5 + 4,25 = 8,75
+    assert wesley.notas[trabalho.id] == 1 and wesley.media is None
 
-    # aplicar de novo não sobrescreve notas ajustadas
-    comp.aplicar(sessoes, cid, [turmas["EFV6A"].id])
+    comp.aplicar(sessoes, cid, [turmas["EFV6A"].id])  # reaplicar não sobrescreve ajustes
     assert sorted(comp.planilha(sessoes, cid, turmas["EFV6A"].id), key=lambda l: l.nome)[1].notas[trabalho.id] == 1
 
 
-def test_media_aritmetica(sessoes, cenario):
-    prof, turmas = cenario
-    cid = comp.criar(sessoes, prof.id, "Médias", 2026, 1, "media", [comp.ItemNovo("P1", 10), comp.ItemNovo("Trabalho", 5)])
-    comp.aplicar(sessoes, cid, [turmas["EFM6B"].id])
-    p1, trab = comp.obter(sessoes, cid)[1]
-    comp.salvar_notas(sessoes, cid, turmas["EFM6B"].id, {(p1.id, "202630115378"): "7", (trab.id, "202630115378"): "4"})
-    [linha] = comp.planilha(sessoes, cid, turmas["EFM6B"].id)
-    assert linha.media == 7.5  # (7 + 4/5*10) / 2
+def test_duplicar_para_outro_bimestre(sessoes, cenario):
+    prof, _ = cenario
+    grupos = [G("Teste", 10, "media", [A("Av1", 10), A("Av2", 10)]), G("Prova", 10, avaliacoes=[A("Prova", 10)])]
+    cid = _composicao(sessoes, prof, "media", grupos)
+    copia = comp.obter(sessoes, comp.duplicar(sessoes, cid, "4º bimestre", 4))
+    assert copia.composicao.bimestre == 4 and copia.formula() == comp.obter(sessoes, cid).formula()
 
 
 def test_notas_sobrevivem_a_atualizacao_da_turma(sessoes, cenario):
@@ -105,14 +197,35 @@ def test_csv_de_medias_e_aceito_pela_fila(sessoes, cenario):
     cid = _composicao(sessoes, prof)
     turma = turmas["EFV6A"]
     comp.aplicar(sessoes, cid, [turma.id])
-    _, (trabalho, teste, prova) = comp.obter(sessoes, cid)
+    estrutura = comp.obter(sessoes, cid)
+    _, teste, prova = estrutura.avaliacoes
     comp.salvar_notas(sessoes, cid, turma.id, {(teste.id, "202630270867"): "3", (prova.id, "202630270867"): "4,5"})
-    composicao, _ = comp.obter(sessoes, cid)
-    dados = comp.csv_medias(composicao, turma, comp.planilha(sessoes, cid, turma.id))
+    dados = comp.csv_medias(estrutura.composicao, turma, comp.planilha(sessoes, cid, turma.id))
     leitura = converter(ler_conteudo("medias.csv", dados), nota_de_linha)
     assert leitura.erros == []
     [nota] = leitura.registros
     assert (nota.matricula, nota.turma, nota.disciplina, nota.bimestre, nota.nota) == ("202630270867", "EFV6A", "História", 3, 9.5)
+
+
+def test_migracao_de_composicao_antiga(tmp_path):
+    """Bancos da versão anterior (itens sem grupo) passam a ter um grupo por item."""
+    from sqlalchemy import create_engine, text
+
+    from apisigeduc.banco import criar_sessoes
+
+    url = f"sqlite:///{tmp_path / 'antigo.db'}"
+    engine = create_engine(url)
+    with engine.begin() as c:
+        c.execute(text("CREATE TABLE itens_composicao (id INTEGER PRIMARY KEY, composicao_id INTEGER, nome VARCHAR(100), valor_maximo FLOAT, nota_padrao FLOAT, ordem INTEGER)"))
+        c.execute(text("INSERT INTO itens_composicao VALUES (1, 1, 'Trabalho', 2, 2, 0), (2, 1, 'Prova', 8, NULL, 1)"))
+    engine.dispose()
+    sessoes = criar_sessoes(url)
+    with sessoes() as s:
+        s.execute(text("INSERT INTO composicoes (id, usuario_id, nome, ano_letivo, bimestre, calculo) VALUES (1, 1, 'Antiga', 2026, 2, 'soma')"))
+        s.commit()
+    e = comp.obter(sessoes, 1)
+    assert e.formula() == ["Média = Trabalho (2) + Prova (8)"]
+    assert e.media({1: 2, 2: 6}) == 8.0
 
 
 def _csrf(cliente, caminho):
@@ -126,12 +239,14 @@ def test_fluxo_web(config, sessoes, repo, cenario):
     cliente.post("/login", data={"email": "prof@escola.br", "senha": "senha-prof", "csrf_token": _csrf(cliente, "/login")})
     csrf = _csrf(cliente, "/notas")
 
+    estrutura = json.dumps([
+        {"nome": "Trabalho", "valor": "2", "calculo": "soma", "avaliacoes": [{"nome": "Trabalho", "valor": "2", "padrao": "2"}]},
+        {"nome": "Teste", "valor": "3", "calculo": "soma", "avaliacoes": [{"nome": "Teste", "valor": "3", "padrao": ""}]},
+        {"nome": "Prova", "valor": "5", "calculo": "soma", "avaliacoes": [{"nome": "Prova", "valor": "5", "padrao": ""}]},
+    ])
     r = cliente.post(
         "/notas",
-        data={
-            "nome": "3º bimestre - 6º anos", "ano_letivo": "2026", "bimestre": "3", "calculo": "soma", "csrf_token": csrf,
-            "item_nome": ["Trabalho", "Teste", "Prova", ""], "item_valor": ["2", "3", "5", ""], "item_padrao": ["2", "", "", ""],
-        },
+        data={"nome": "3º bimestre - 6º anos", "ano_letivo": "2026", "bimestre": "3", "calculo": "soma", "csrf_token": csrf, "estrutura": estrutura},
     )
     assert "Composição criada" in r.text and "EFV6A" in r.text
     cid = int(re.search(r"/notas/(\d+)/turmas", r.text).group(1))
@@ -142,7 +257,7 @@ def test_fluxo_web(config, sessoes, repo, cenario):
     tid = turmas["EFV6A"].id
     r = cliente.get(f"/notas/{cid}/turmas/{tid}")
     assert "IVAN GLEYSON" in r.text and 'value="2"' in r.text  # trabalho para todos
-    _, (trabalho, teste, prova) = comp.obter(sessoes, cid)
+    trabalho, teste, prova = comp.obter(sessoes, cid).avaliacoes
     r = cliente.post(
         f"/notas/{cid}/turmas/{tid}",
         data={"csrf_token": csrf, f"n_{teste.id}_202630270867": "3", f"n_{prova.id}_202630270867": "4,5"},
@@ -166,3 +281,8 @@ def test_fluxo_web(config, sessoes, repo, cenario):
     outro.post("/login", data={"email": "outro@escola.br", "senha": "senha-outro", "csrf_token": _csrf(outro, "/login")})
     assert outro.get(f"/notas/{cid}").status_code == 404
     assert outro.get(f"/notas/{cid}/turmas/{tid}").status_code == 404
+    assert outro.post(f"/notas/{cid}/avaliacoes", data={"grupo_id": "1", "nome": "x", "valor": "1", "csrf_token": _csrf(outro, "/notas")}).status_code == 404
+
+    # incluir avaliação pela tela: Prova passa a ter duas partes? não cabe (soma 5 de 5)
+    r = cliente.post(f"/notas/{cid}/avaliacoes", data={"grupo_id": str(comp.obter(sessoes, cid).grupos[2].grupo.id), "nome": "Prova 2", "valor": "1", "csrf_token": csrf})
+    assert "mais que os 5 do grupo" in r.text

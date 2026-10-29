@@ -40,10 +40,11 @@ STATUS = {
 TIPOS_PLANILHA = {"notas": "Notas", "frequencia": "Frequência"}
 TIPOS = {**TIPOS_PLANILHA, "turmas": "Importar turmas"}
 BIMESTRES = {1: "1º bimestre", 2: "2º bimestre", 3: "3º bimestre", 4: "4º bimestre"}
+CALCULO_NOMES = {"soma": "soma", "media": "média"}
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else "—"
-templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA, BIMESTRES=BIMESTRES)
+templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA, BIMESTRES=BIMESTRES, CALCULO_NOMES=CALCULO_NOMES)
 templates.env.filters["num"] = lambda v: "" if v is None else f"{v:g}".replace(".", ",")
 templates.env.filters["descrever_turma"] = descrever_turma
 
@@ -280,8 +281,8 @@ def criar_app(
 
         turma = turma_permitida(turma_id, usuario)
         aplicadas = [
-            c for c, _, _ in comp.listar(sessoes, turma.usuario_id)
-            if turma.id in {t.id for _, t in comp.turmas_aplicadas(sessoes, c.id)}
+            e.composicao for e, _ in comp.listar(sessoes, turma.usuario_id)
+            if turma.id in {t.id for _, t in comp.turmas_aplicadas(sessoes, e.composicao.id)}
         ]
         return pagina(
             request, "turma.html", usuario, turma=turma, estudantes=turmas_repo.estudantes(sessoes, turma.id), composicoes=aplicadas
