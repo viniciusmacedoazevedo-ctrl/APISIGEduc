@@ -46,6 +46,13 @@
   pre { white-space:pre-wrap; background:#f7f8fa; border:1px solid var(--borda); border-radius:6px; padding:10px; font-size:13px; }
   form.linha { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
   form.linha input { width:auto; }
+  .itens td { padding:6px 6px; } .itens input { padding:7px 8px; }
+  input.nota { width:72px; text-align:center; padding:6px 4px; }
+  input.nota.invalida { border-color:var(--vermelho); background:var(--vermelho-claro); }
+  .media { font-weight:700; text-align:center; } .media.vazia { color:var(--suave); font-weight:400; }
+  .barra-acoes { position:sticky; bottom:0; background:var(--cartao); border-top:1px solid var(--borda); padding:12px 0; margin-top:12px; }
+  .lista-turmas { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:6px 16px; }
+  .chip { display:inline-block; background:#eef1f4; border-radius:6px; padding:2px 8px; margin:2px 4px 2px 0; font-size:13px; }
 </style>
 </head>
 <body>
@@ -54,6 +61,7 @@
   {% if usuario %}
     <a href="/">Envios</a>
     <a href="/turmas">Turmas</a>
+    <a href="/notas">Notas</a>
     <a href="/credencial">Senha do SIGEduc</a>
     {% if usuario.admin %}<a href="/admin/usuarios">Usuários</a>{% endif %}
     <a href="/conta">{{ usuario.nome or usuario.email }}</a>

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block titulo %}{{ composicao.nome }}{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h1>{{ composicao.nome }}</h1>
+  <p class="suave">{{ BIMESTRES[composicao.bimestre] }} de {{ composicao.ano_letivo }} · {{ CALCULOS[composicao.calculo] }}</p>
+  <div class="tabela"><table>
+    <tr><th>Item</th><th>Vale</th><th>Nota para todos</th></tr>
+    {% for i in itens %}<tr><td>{{ i.nome }}</td><td>{{ i.valor_maximo|num }}</td><td>{{ i.nota_padrao|num or "—" }}</td></tr>{% endfor %}
+    <tr><th>{{ "Total" if composicao.calculo == "soma" else "Média máxima" }}</th><th>{{ total|num }}</th><th></th></tr>
+  </table></div>
+</div>
+
+<div class="cartao">
+  <h2>Turmas com esta composição</h2>
+  {% if aplicadas %}
+  <div class="tabela"><table>
+    <tr><th>Turma</th><th>Componente</th><th>Notas completas</th><th>Enviado ao SIGEduc</th><th></th></tr>
+    {% for ligacao, t in aplicadas %}
+    {% set feitos, todos = progresso[t.id] %}
+    <tr>
+      <td><a href="/notas/{{ composicao.id }}/turmas/{{ t.id }}"><strong>{{ t.codigo }}</strong></a><br><span class="suave">{{ t.codigo | descrever_turma }}</span></td>
+      <td>{{ t.componente }}</td>
+      <td><span class="selo {{ 'concluido' if feitos == todos and todos else 'processando' }}">{{ feitos }} de {{ todos }}</span></td>
+      <td class="suave">{{ ligacao.enviado_em | data }}</td>
+      <td><a class="botao pequeno" href="/notas/{{ composicao.id }}/turmas/{{ t.id }}">Lançar notas</a></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="suave">Ainda não aplicada em nenhuma turma.</p>{% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Aplicar em turmas</h2>
+  {% if disponiveis %}
+  <form method="post" action="/notas/{{ composicao.id }}/turmas">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="lista-turmas">
+      {% for t in disponiveis %}
+      <label class="check"><input type="checkbox" name="turma_id" value="{{ t.id }}"> <span><strong>{{ t.codigo }}</strong> · {{ t.componente }}<br><span class="suave">{{ t.ano_serie }} · {{ t.escola }}</span></span></label>
+      {% endfor %}
+    </div>
+    <div class="botoes"><button class="botao">Aplicar nas turmas marcadas</button></div>
+  </form>
+  {% else %}
+  <p class="suave">Nenhuma outra turma disponível. <a href="/turmas">Buscar turmas no SIGEduc</a>.</p>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <h2>Usar em outro bimestre</h2>
+  <form class="linha" method="post" action="/notas/{{ composicao.id }}/duplicar">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <input type="text" name="nome" required placeholder="Nome da cópia" value="{{ composicao.nome }} (cópia)" style="min-width:260px">
+    <select name="bimestre">{% for n, rotulo in BIMESTRES.items() %}<option value="{{ n }}" {{ "selected" if n == composicao.bimestre }}>{{ rotulo }}</option>{% endfor %}</select>
+    <button class="botao secundario">Copiar composição</button>
+  </form>
+  <form method="post" action="/notas/{{ composicao.id }}/excluir" style="margin-top:16px"
+        onsubmit="return confirm('Excluir a composição e todas as notas lançadas nela?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <button class="botao secundario pequeno" style="color:var(--vermelho)!important;border-color:var(--vermelho)">Excluir composição</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block titulo %}Notas{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h2>Nova composição de notas</h2>
+  <p class="suave">Monte como a nota do bimestre é formada. Depois aplique em uma ou várias turmas —
+    a mesma composição serve para o 6º A e o 6º B, por exemplo. No SIGEduc entra só a média.</p>
+  <form method="post" action="/notas">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <div class="grade">
+      <div><label for="nome">Nome</label><input type="text" id="nome" name="nome" required placeholder="Ex.: 3º bimestre - 6º anos"></div>
+      <div><label for="bimestre">Bimestre</label>
+        <select id="bimestre" name="bimestre">{% for n, rotulo in BIMESTRES.items() %}<option value="{{ n }}">{{ rotulo }}</option>{% endfor %}</select></div>
+      <div><label for="ano_letivo">Ano letivo</label><input type="text" id="ano_letivo" name="ano_letivo" value="{{ ano }}" inputmode="numeric"></div>
+      <div><label for="calculo">Como calcular a média</label>
+        <select id="calculo" name="calculo">{% for v, rotulo in CALCULOS.items() %}<option value="{{ v }}">{{ rotulo }}</option>{% endfor %}</select></div>
+    </div>
+
+    <label style="margin-top:18px">Itens da nota</label>
+    <div class="tabela"><table class="itens" id="itens">
+      <tr><th>Item</th><th>Vale (pontos)</th><th>Nota para todos <span class="suave">(opcional)</span></th></tr>
+      {% for i in range(4) %}
+      <tr>
+        <td><input type="text" name="item_nome" list="sugestoes" placeholder="{{ ['Trabalho', 'Teste', 'Prova', 'Atividade'][i] }}"></td>
+        <td><input type="text" name="item_valor" inputmode="decimal" placeholder="{{ ['2', '3', '5', ''][i] }}"></td>
+        <td><input type="text" name="item_padrao" inputmode="decimal" placeholder="—"></td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    <datalist id="sugestoes"><option>Trabalho</option><option>Teste</option><option>Prova</option><option>Avaliação</option><option>Atividade</option><option>Participação</option><option>Seminário</option><option>Recuperação</option></datalist>
+    <p class="suave" id="total"></p>
+    <p class="suave">"Nota para todos": use quando todos os alunos tiraram a mesma nota no item (ex.: um trabalho
+      em grupo valendo 2). Ela é lançada para todos ao aplicar a composição, e você pode ajustar aluno por aluno depois.</p>
+    <div class="botoes">
+      <button type="button" class="botao secundario" id="mais">+ Item</button>
+      <button class="botao">Criar composição</button>
+    </div>
+  </form>
+</div>
+
+<div class="cartao">
+  <h2>Minhas composições</h2>
+  {% if composicoes %}
+  <div class="tabela"><table>
+    <tr><th>Composição</th><th>Bimestre</th><th>Itens</th><th>Turmas</th></tr>
+    {% for c, itens, n in composicoes %}
+    <tr>
+      <td><a href="/notas/{{ c.id }}"><strong>{{ c.nome }}</strong></a></td>
+      <td>{{ BIMESTRES[c.bimestre] }} de {{ c.ano_letivo }}</td>
+      <td>{% for i in itens %}<span class="chip">{{ i.nome }} ({{ i.valor_maximo|num }})</span>{% endfor %}</td>
+      <td>{{ n }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<p class="suave">Nenhuma composição ainda.</p>{% endif %}
+</div>
+
+<script>
+  const tabela = document.getElementById('itens');
+  document.getElementById('mais').onclick = () => {
+    const nova = tabela.rows[1].cloneNode(true);
+    nova.querySelectorAll('input').forEach((i) => { i.value = ''; i.placeholder = i.name === 'item_padrao' ? '—' : ''; });
+    tabela.tBodies[0].appendChild(nova);
+  };
+  const atualizar = () => {
+    const soma = [...document.getElementsByName('item_valor')].reduce((t, i) => t + (parseFloat(i.value.replace(',', '.')) || 0), 0);
+    const calculo = document.getElementById('calculo').value;
+    document.getElementById('total').textContent = calculo === 'soma'
+      ? `Total dos itens: ${soma.toLocaleString('pt-BR')} de 10 pontos` + (soma && soma !== 10 ? ' — atenção: não soma 10' : '')
+      : 'Cada item é convertido para 0 a 10 e a média é a média deles.';
+  };
+  document.addEventListener('input', atualizar); document.getElementById('calculo').onchange = atualizar; atualizar();
+</script>
+{% endblock %}

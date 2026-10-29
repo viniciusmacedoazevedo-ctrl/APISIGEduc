@@ -12,6 +12,7 @@ import unicodedata
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
@@ -25,6 +26,7 @@ from ..banco import Turma, Usuario
 from ..modelos import descrever_turma
 from ..config import Config, ConfigError
 from ..usuarios import RepositorioUsuarios, UsuarioNaoEncontrado
+from . import notas as notas_web
 
 log = logging.getLogger(__name__)
 
@@ -37,10 +39,12 @@ STATUS = {
 }
 TIPOS_PLANILHA = {"notas": "Notas", "frequencia": "Frequência"}
 TIPOS = {**TIPOS_PLANILHA, "turmas": "Importar turmas"}
+BIMESTRES = {1: "1º bimestre", 2: "2º bimestre", 3: "3º bimestre", 4: "4º bimestre"}
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else "—"
-templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA)
+templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA, BIMESTRES=BIMESTRES)
+templates.env.filters["num"] = lambda v: "" if v is None else f"{v:g}".replace(".", ",")
 templates.env.filters["descrever_turma"] = descrever_turma
 
 
@@ -272,8 +276,16 @@ def criar_app(
 
     @app.get("/turmas/{turma_id}", response_class=HTMLResponse)
     def detalhe_turma(request: Request, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
+        from .. import composicoes as comp
+
         turma = turma_permitida(turma_id, usuario)
-        return pagina(request, "turma.html", usuario, turma=turma, estudantes=turmas_repo.estudantes(sessoes, turma.id))
+        aplicadas = [
+            c for c, _, _ in comp.listar(sessoes, turma.usuario_id)
+            if turma.id in {t.id for _, t in comp.turmas_aplicadas(sessoes, c.id)}
+        ]
+        return pagina(
+            request, "turma.html", usuario, turma=turma, estudantes=turmas_repo.estudantes(sessoes, turma.id), composicoes=aplicadas
+        )
 
     @app.get("/turmas/{turma_id}/{arquivo}.csv")
     def baixar_turma(turma_id: int, arquivo: str, usuario: Usuario = Depends(usuario_logado)):
@@ -404,4 +416,17 @@ def criar_app(
             avisar(request, str(e), "erro")
         return voltar("/admin/usuarios")
 
+    notas_web.registrar(
+        app,
+        SimpleNamespace(
+            sessoes=sessoes,
+            repo=repo,
+            pagina=pagina,
+            avisar=avisar,
+            voltar=voltar,
+            verificar_csrf=verificar_csrf,
+            usuario_logado=usuario_logado,
+            turma_permitida=turma_permitida,
+        ),
+    )
     return app

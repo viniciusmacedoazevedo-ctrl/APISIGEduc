@@ -20,7 +20,8 @@ pessoa faria.
 | Senha do SIGEduc por usuário, criptografada no PostgreSQL | pronta e testada |
 | Fila de processamento (worker) | pronta e testada |
 | Importar turmas e estudantes do Portal do Professor | pronta; testada com telas no formato do SIGEduc, confirmar no sistema real |
-| Login no SIGEduc | implementado; confirmar no sistema real |
+| Composição de notas do bimestre (itens, nota para todos, média) e envio das médias | pronta e testada |
+| Login no SIGEduc | funcionando; a verificação humana é resolvida por uma pessoa |
 | Lançamento de notas e frequência | estrutura pronta; seletores das telas **a mapear** em `src/apisigeduc/seletores.py` |
 
 ## Como funciona
@@ -132,6 +133,28 @@ frequência** já preenchidos com matrícula, nome, turma e componente.
 
 Pelo terminal: `apisigeduc turmas --usuario seu@email.com`.
 
+### Composição de notas
+
+No SIGEduc entra só a média do bimestre. No menu **Notas** você monta como ela é formada,
+**antes** de escolher a turma:
+
+1. **Nova composição:** nome (ex.: "3º bimestre - 6º anos"), bimestre, ano e os itens, cada
+   um com quanto vale (ex.: Trabalho vale 2, Teste vale 3, Prova vale 5).
+   - **Nota para todos** (opcional): quando todos tiraram a mesma nota no item (ex.: um
+     trabalho em grupo valendo 2). Ela é lançada para todos os alunos ao aplicar.
+   - **Cálculo:** *soma dos itens* (os itens somam até 10) ou *média dos itens* (cada item
+     convertido para 0 a 10). A média é arredondada para 1 casa (8,25 → 8,3).
+2. **Aplicar em turmas:** marque as turmas (6º A, 6º B...). A mesma composição vale para
+   todas e pode ser **copiada** para outro bimestre.
+3. **Lançar notas:** em cada turma, uma grade com os estudantes e os itens. A linha
+   "todos" preenche a coluna inteira; depois é só ajustar aluno por aluno. A média aparece
+   enquanto você digita, e notas acima do valor do item são recusadas.
+4. **Enviar médias ao SIGEduc:** as médias entram na fila de lançamento com o seu login.
+   Se faltar nota de algum aluno, dá para enviar só os completos.
+
+As notas ficam ligadas à turma e à matrícula, então continuam valendo depois de
+**Atualizar turmas** a partir do SIGEduc.
+
 ### Formato das planilhas
 
 O CSV pode usar `;` ou `,` como separador (CSV salvo pelo Excel também funciona). Os
@@ -198,13 +221,15 @@ reinstaladas automaticamente. Depois de uma atualização, reinicie o `apisigedu
 src/apisigeduc/
   cli.py          linha de comando
   config.py       leitura do .env
-  banco.py        tabelas: usuarios, credenciais_sigeduc, envios, turmas, estudantes
+  banco.py        tabelas: usuarios, credenciais_sigeduc, envios, turmas, estudantes,
+                  composicoes, itens_composicao, composicoes_turmas, notas_itens
   senhas.py       hash das senhas de acesso
   cripto.py       criptografia das senhas do SIGEduc
   usuarios.py     usuários e credenciais
   envios.py       fila de planilhas e worker
   turmas.py       turmas e estudantes importados
-  web/            tela web (FastAPI + modelos HTML)
+  composicoes.py  composição das notas do bimestre e cálculo da média
+  web/            tela web (FastAPI + modelos HTML); web/notas.py: telas de notas
   cliente.py      sessão do navegador e login no SIGEduc
   seletores.py    seletores das telas (único arquivo a ajustar se o layout mudar)
   modelos.py      Nota, Frequencia e suas validações

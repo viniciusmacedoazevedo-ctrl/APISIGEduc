@@ -10,6 +10,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
+    Float,
     DateTime,
     ForeignKey,
     Integer,
@@ -102,6 +103,62 @@ class Estudante(Base):
     turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
     matricula: Mapped[str] = mapped_column(String(50))
     nome: Mapped[str] = mapped_column(String(300))
+
+
+class Composicao(Base):
+    """Composição de notas de um bimestre (ex.: trabalho + teste + prova), criada
+    antes de escolher a turma e aplicável a várias turmas."""
+
+    __tablename__ = "composicoes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    nome: Mapped[str] = mapped_column(String(200))
+    ano_letivo: Mapped[int] = mapped_column(Integer)
+    bimestre: Mapped[int] = mapped_column(Integer)
+    calculo: Mapped[str] = mapped_column(String(20), default="soma")  # soma | media
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ItemComposicao(Base):
+    """Item da composição: Trabalho (vale 2), Prova (vale 5)..."""
+
+    __tablename__ = "itens_composicao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    composicao_id: Mapped[int] = mapped_column(ForeignKey("composicoes.id", ondelete="CASCADE"), index=True)
+    nome: Mapped[str] = mapped_column(String(100))
+    valor_maximo: Mapped[float] = mapped_column(Float)
+    # nota aplicada a todos os estudantes ao aplicar a composição numa turma
+    nota_padrao: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ordem: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ComposicaoTurma(Base):
+    """Turma em que a composição foi aplicada."""
+
+    __tablename__ = "composicoes_turmas"
+    __table_args__ = (UniqueConstraint("composicao_id", "turma_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    composicao_id: Mapped[int] = mapped_column(ForeignKey("composicoes.id", ondelete="CASCADE"), index=True)
+    turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
+    aplicado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # médias enviadas ao SIGEduc
+
+
+class NotaItem(Base):
+    """Nota de um estudante num item. Ligada à turma + matrícula (e não ao id do
+    estudante) para sobreviver às atualizações da lista vinda do SIGEduc."""
+
+    __tablename__ = "notas_itens"
+    __table_args__ = (UniqueConstraint("item_id", "turma_id", "matricula"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("itens_composicao.id", ondelete="CASCADE"), index=True)
+    turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
+    matricula: Mapped[str] = mapped_column(String(50))
+    valor: Mapped[float] = mapped_column(Float)
 
 
 def normalizar_url(url: str) -> str:

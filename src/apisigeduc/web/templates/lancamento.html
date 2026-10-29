@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block titulo %}Notas {{ turma.codigo }}{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h1>{{ turma.codigo }} · {{ turma.componente }} — {{ composicao.nome }}</h1>
+  <p class="suave">{{ turma.codigo | descrever_turma }} · {{ turma.escola }}<br>
+    {{ BIMESTRES[composicao.bimestre] }} de {{ composicao.ano_letivo }} ·
+    {{ "média = soma dos itens" if composicao.calculo == "soma" else "média = média dos itens na escala 0 a 10" }} ·
+    {{ completos }} de {{ linhas|length }} estudante(s) com todas as notas</p>
+  <p><a href="/notas/{{ composicao.id }}">← Voltar à composição</a></p>
+</div>
+
+<form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}" class="cartao" id="grade">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if linhas %}
+  <div class="tabela"><table>
+    <tr>
+      <th>Estudante</th>
+      {% for i in itens %}
+      <th style="text-align:center">{{ i.nome }}<br><span class="suave">vale {{ i.valor_maximo|num }}</span><br>
+        <input type="text" class="nota" inputmode="decimal" placeholder="todos" data-todos="{{ i.id }}" title="Digite e aperte Enter para dar a mesma nota a todos">
+      </th>
+      {% endfor %}
+      <th style="text-align:center">Média</th>
+    </tr>
+    {% for l in linhas %}
+    <tr>
+      <td>{{ l.nome }}<br><span class="suave">{{ l.matricula }}</span></td>
+      {% for i in itens %}
+      <td style="text-align:center"><input type="text" class="nota" inputmode="decimal" name="n_{{ i.id }}_{{ l.matricula }}"
+          value="{{ l.notas.get(i.id)|num }}" data-item="{{ i.id }}" data-max="{{ i.valor_maximo }}"></td>
+      {% endfor %}
+      <td class="media {{ 'vazia' if l.media is none }}">{{ l.media|num if l.media is not none else "—" }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  <div class="barra-acoes botoes" style="margin-top:0">
+    <button class="botao">Salvar notas</button>
+    <span class="suave" style="align-self:center">Na linha "todos", digite uma nota e aperte Enter para preencher a coluna inteira.</span>
+  </div>
+  {% else %}
+  <p class="suave">Esta turma não tem estudantes importados. <a href="/turmas">Buscar turmas no SIGEduc</a>.</p>
+  {% endif %}
+</form>
+
+{% if linhas %}
+<div class="cartao">
+  <h2>Enviar médias ao SIGEduc</h2>
+  <p class="suave">Salve as notas antes. As médias entram na fila de lançamento com o seu login do SIGEduc.</p>
+  <form method="post" action="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/enviar">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    {% if completos < linhas|length %}
+    <label class="check"><input type="checkbox" name="so_completos" value="true"> Enviar só quem está completo ({{ completos }} de {{ linhas|length }})</label>
+    {% endif %}
+    <div class="botoes">
+      <button class="botao">Enviar médias ao SIGEduc</button>
+      <a class="botao secundario" href="/notas/{{ composicao.id }}/turmas/{{ turma.id }}/medias.csv">Baixar médias (CSV)</a>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<script>
+  const calculo = {{ composicao.calculo | tojson }};
+  const numero = (t) => { t = (t || '').trim().replace(',', '.'); return t === '' ? null : Number(t); };
+  const arred = (v) => Math.round((v + Number.EPSILON) * 10) / 10;
+  function recalcular(tr) {
+    const campos = [...tr.querySelectorAll('input[data-item]')];
+    let ok = true, soma = 0, medias = 0;
+    campos.forEach((c) => {
+      const v = numero(c.value), max = Number(c.dataset.max);
+      const invalida = v !== null && (isNaN(v) || v < 0 || v > max);
+      c.classList.toggle('invalida', invalida);
+      if (v === null || invalida) { ok = false; return; }
+      soma += v; medias += v / max * 10;
+    });
+    const celula = tr.querySelector('.media');
+    const media = calculo === 'soma' ? soma : medias / campos.length;
+    celula.textContent = ok ? arred(Math.min(media, 10)).toLocaleString('pt-BR') : '—';
+    celula.classList.toggle('vazia', !ok);
+  }
+  const grade = document.getElementById('grade');
+  grade.addEventListener('input', (e) => { if (e.target.dataset.item) recalcular(e.target.closest('tr')); });
+  grade.querySelectorAll('input[data-todos]').forEach((t) => t.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    grade.querySelectorAll(`input[data-item="${t.dataset.todos}"]`).forEach((c) => { c.value = t.value; recalcular(c.closest('tr')); });
+    t.value = '';
+  }));
+</script>
+{% endblock %}
