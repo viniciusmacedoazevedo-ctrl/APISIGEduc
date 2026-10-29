@@ -7,6 +7,7 @@
   worker                 processa a fila de envios separadamente
   turmas --usuario EMAIL busca turmas e estudantes no Portal do Professor
   login | mapear         testa o login / abre o SIGEduc com o Playwright Inspector
+  capturar               salva imagem e HTML das telas que você abrir (para mapear)
   notas | frequencia     lança uma planilha direto, sem passar pela fila
 """
 
@@ -163,6 +164,29 @@ def cmd_mapear(args) -> int:
     return 0
 
 
+def cmd_capturar(args) -> int:
+    """Entra no SIGEduc com o navegador visível; a cada Enter no terminal, salva imagem
+    e HTML das abas abertas em screenshots/ (para mapear telas como "Lançar Notas")."""
+    with _cliente(args.usuario, headless=False) as cliente:
+        cliente.login()
+        n = 0
+        while True:
+            try:
+                resposta = input(
+                    "\nNo navegador, vá até a tela que quer salvar e aperte Enter aqui "
+                    "(ou digite sair e Enter para terminar): "
+                )
+            except (EOFError, KeyboardInterrupt):
+                break
+            if resposta.strip().lower() in {"sair", "s", "q"}:
+                break
+            n += 1
+            caminho = cliente.capturar_tela(f"tela-{n:02d}")
+            print(f"Salvo: {caminho} (e o .html com o mesmo nome)" if caminho else "Não foi possível salvar a tela.")
+    print(f"{n} tela(s) salva(s) na pasta screenshots.")
+    return 0
+
+
 def cmd_lancar(args) -> int:
     from .envios import _executores
 
@@ -234,6 +258,7 @@ def criar_parser() -> argparse.ArgumentParser:
         ("turmas", cmd_turmas, "busca turmas e estudantes no Portal do Professor"),
         ("login", cmd_login, "testa o login no SIGEduc de um usuário"),
         ("mapear", cmd_mapear, "abre o SIGEduc logado com o Playwright Inspector"),
+        ("capturar", cmd_capturar, "salva imagem e HTML das telas do SIGEduc que você abrir"),
     ):
         p = sub.add_parser(nome, help=ajuda)
         p.add_argument("--usuario", required=True, help="e-mail do usuário da tela web")

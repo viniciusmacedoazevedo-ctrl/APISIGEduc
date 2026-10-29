@@ -19,7 +19,7 @@ pessoa faria.
 | Usuários e administração (criar, desativar, redefinir senha) | pronta e testada |
 | Senha do SIGEduc por usuário, criptografada no PostgreSQL | pronta e testada |
 | Fila de processamento (worker) | pronta e testada |
-| Importar turmas e estudantes do Portal do Professor | pronta; testada com telas no formato do SIGEduc, confirmar no sistema real |
+| Importar turmas e estudantes do Portal do Professor | pronta e funcionando no SIGEduc real |
 | Composição de notas do bimestre (itens, nota para todos, média) e envio das médias | pronta e testada |
 | Login no SIGEduc | funcionando; a verificação humana é resolvida por uma pessoa |
 | Lançamento de notas e frequência | estrutura pronta; seletores das telas **a mapear** em `src/apisigeduc/seletores.py` |
@@ -229,6 +229,16 @@ os seletores corretos:
 ```bash
 apisigeduc mapear --usuario seu@email.com
 ```
+
+Ou, para só salvar as telas e mandar para quem vai programar:
+
+```bash
+apisigeduc capturar --usuario seu@email.com
+```
+
+Ele entra no SIGEduc com o navegador visível; vá até a tela desejada e aperte Enter no
+terminal para salvar a imagem e o HTML (`screenshots/tela-01-...png` e `.html`). Repita
+para cada tela e digite `sair` para terminar.
 
 Esse comando abre o navegador já logado com o Playwright Inspector. Navegue até a tela
 desejada, use o botão "Pick locator" para clicar nos campos e copie os seletores para

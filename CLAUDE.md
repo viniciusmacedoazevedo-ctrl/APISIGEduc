@@ -32,8 +32,9 @@ no `README.md`.
 
 1. **Mapear a tela "Lançar Notas" do SIGEduc** (menu da Escola Digital da turma, ou menu
    "Notas" do Portal do Professor). Pedir ao usuário prints da tela com a lista de alunos e
-   os campos do bimestre, o botão salvar e a mensagem de confirmação (e, se possível, o
-   `.html` salvo em `screenshots/` com `apisigeduc mapear`). Depois reescrever
+   os campos do bimestre, o botão salvar e a mensagem de confirmação. Melhor ainda: os
+   `.png` e `.html` salvos por `apisigeduc capturar --usuario EMAIL` (Enter no terminal
+   salva a tela aberta no navegador). Depois reescrever
    `tarefas/notas.py` no estilo de `tarefas/turmas.py` (esperar o conteúdo de cada tela,
    localizar pela matrícula, testar contra uma cópia falsa da tela).
 2. Mesmo processo para frequência.
