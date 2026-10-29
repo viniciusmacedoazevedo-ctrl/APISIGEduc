@@ -189,6 +189,20 @@ tela mostra a fórmula por extenso e avisa quando faltam pontos (ex.: Trabalho c
 As notas ficam ligadas à turma e à matrícula, então continuam valendo depois de
 **Atualizar turmas** a partir do SIGEduc.
 
+### Diário de classe, fotos e anotações
+
+- **Chamada:** na turma, **Fazer a chamada**. Todos começam presentes; toque em quem faltou.
+  Informe quantas aulas foram (geminadas contam 2), o conteúdo e observações da turma.
+  **Aulas e frequência** lista as aulas dadas e avisa quem está abaixo de 75% (LDB, art. 24, VI).
+- **Ficha do estudante:** toque no nome do estudante na turma. Mostra foto, médias por
+  bimestre e frequência, e as **anotações** (leitura e escrita, aprendizagem, comportamento,
+  saúde, família...). As anotações são **privadas de quem escreveu**: nem o administrador lê,
+  e nunca vão ao SIGEduc. Marque uma anotação como **importante** para o estudante aparecer
+  sinalizado (só o sinal, sem o texto) ao lançar notas e na chamada.
+- **Fotos:** copiadas do SIGEduc na busca de turmas, para reconhecer os estudantes; só os
+  professores do estudante as veem. A silhueta que o SIGEduc mostra para quem não tem foto é
+  descartada (a mesma imagem para duas matrículas diferentes).
+
 ### Desempenho e indicadores
 
 Depois de lançar as notas, cada turma tem a página **Ver desempenho da turma**:
@@ -309,6 +323,7 @@ src/apisigeduc/
   composicoes.py  composição das notas (grupos e avaliações) e cálculo da média
   planilha_notas.py  exportar/importar a grade de notas em Excel (.xlsx)
   desempenho.py   indicadores, rankings e acompanhamento do ano letivo
+  diario.py       aulas, chamada, frequência e anotações privadas
   web/            tela web (FastAPI + modelos HTML); web/notas.py: telas de notas;
                   web/static: estilo, ícones, manifesto e service worker (PWA)
   cliente.py      sessão do navegador e login no SIGEduc

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_foto.html" as ft %}
 {% block titulo %}Chamada {{ turma.codigo }}{% endblock %}
 {% block conteudo %}
 <form method="post" action="/turmas/{{ turma.id }}/chamada" id="form-chamada">
@@ -34,11 +35,12 @@
     <li>
       <label class="aluno-chamada">
         <input type="checkbox" name="falta" value="{{ e.matricula }}" {{ "checked" if faltou }}>
+        {{ ft.foto(e.matricula, e.nome, e.matricula in com_foto) }}
         <span class="nome">{{ e.nome }}<span class="suave">{{ e.matricula }}</span></span>
         <span class="estado" aria-hidden="true"></span>
       </label>
       {% if marcados.get(e.matricula) %}
-      <a class="chip-anotacao" href="/alunos/{{ e.matricula }}" title="Você tem anotações: {% for c in marcados[e.matricula] %}{{ CATEGORIAS.get(c, c) }}{{ ", " if not loop.last }}{% endfor %}">anotações</a>
+      <a class="sinal-importante" href="/alunos/{{ e.matricula }}" title="Observação importante: {% for c in marcados[e.matricula] %}{{ CATEGORIAS.get(c, c) }}{{ ", " if not loop.last }}{% endfor %}"><span aria-hidden="true">!</span> importante</a>
       {% endif %}
     </li>
     {% endfor %}

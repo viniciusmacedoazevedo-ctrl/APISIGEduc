@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% import "_foto.html" as ft %}
 {% block titulo %}{{ nome }}{% endblock %}
 {% block conteudo %}
 <div class="cartao ficha-topo">
-  <div class="foto-aluno grande" aria-hidden="true">{{ nome[:1] }}</div>
+  {{ ft.foto(matricula, nome, tem_foto, True) }}
   <div>
     <h1 style="margin:0">{{ nome }}</h1>
     <p class="suave" style="margin:4px 0 0">Matrícula {{ matricula }}</p>
@@ -29,13 +30,15 @@
 <div class="cartao">
   <h2>Minhas anotações</h2>
   <p class="suave">Só você vê o que escreve aqui. Nem o administrador lê, e nada disso vai ao SIGEduc.
-    Registre fatos observados, sem diagnósticos, e com cuidado: são dados de um menor de idade.</p>
+    Registre fatos observados, sem diagnósticos, e com cuidado: são dados de um menor de idade.
+    As marcadas como importantes fazem o estudante aparecer sinalizado ao lançar notas e na chamada (só o sinal; o texto fica aqui).</p>
   <form method="post" action="/alunos/{{ matricula }}/anotacoes">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
     <label for="categoria">Assunto</label>
     <select id="categoria" name="categoria">{% for v, rotulo in CATEGORIAS.items() %}<option value="{{ v }}">{{ rotulo }}</option>{% endfor %}</select>
     <label for="texto">Anotação</label>
     <textarea id="texto" name="texto" rows="3" required maxlength="4000" placeholder="Ex.: ainda não lê textos curtos; acompanha melhor com leitura em voz alta…"></textarea>
+    <label class="check"><input type="checkbox" name="importante" value="true"> Importante: sinalizar este estudante ao lançar notas e na chamada</label>
     <div class="botoes"><button class="botao">Salvar anotação</button></div>
   </form>
   {% if anotacoes %}
@@ -43,7 +46,11 @@
     {% for a in anotacoes %}
     <li>
       <div class="cabecalho-anotacao"><span class="chip">{{ CATEGORIAS.get(a.categoria, a.categoria) }}</span>
+        {% if a.importante %}<span class="sinal-importante"><span aria-hidden="true">!</span> importante</span>{% endif %}
         <span class="suave">{{ a.criado_em|data }}</span>
+        <form method="post" action="/alunos/{{ matricula }}/anotacoes/{{ a.id }}/importante" style="margin:0">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <button class="botao secundario pequeno">{{ "Desmarcar importante" if a.importante else "Marcar importante" }}</button></form>
         <form method="post" action="/alunos/{{ matricula }}/anotacoes/{{ a.id }}/excluir" style="margin:0 0 0 auto" data-confirmar="Excluir esta anotação?">
           <input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="remover" aria-label="Excluir anotação">✕</button></form></div>
       <p style="margin:6px 0 0;white-space:pre-wrap">{{ a.texto }}</p>

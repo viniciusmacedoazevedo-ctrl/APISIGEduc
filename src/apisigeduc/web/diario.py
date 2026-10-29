@@ -6,7 +6,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from .. import composicoes as comp
 from .. import diario
@@ -63,6 +63,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             presencas=diario.presencas(sessoes, aula.id) if aula else {},
             estudantes=estudantes,
             marcados=diario.contagem_anotacoes(sessoes, usuario.id, [e.matricula for e in estudantes]),
+            com_foto=turmas_repo.com_foto(sessoes, [e.matricula for e in estudantes]),
             CATEGORIAS=diario.CATEGORIAS,
         )
 
@@ -129,11 +130,21 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             nome=vinculos[0][1].nome,
             turmas=turmas,
             anotacoes=diario.anotacoes(sessoes, usuario.id, matricula),
+            tem_foto=bool(turmas_repo.com_foto(sessoes, [matricula])),
             CATEGORIAS=diario.CATEGORIAS,
             minima=ctx.config.media_minima,
             frequencia_minima=diario.FREQUENCIA_MINIMA,
             voltar_para=request.query_params.get("voltar", ""),
         )
+
+    @app.get("/alunos/{matricula}/foto")
+    def foto(matricula: str, usuario: Usuario = Depends(usuario_logado)):
+        estudante_permitido(matricula, usuario)
+        registro = turmas_repo.foto(sessoes, matricula)
+        if registro is None:
+            raise HTTPException(404, "Sem foto")
+        # privada: o navegador pode guardar, mas nenhum intermediário
+        return Response(registro.conteudo, media_type=registro.tipo, headers={"Cache-Control": "private, max-age=86400"})
 
     @app.post("/alunos/{matricula}/anotacoes")
     def anotar(
@@ -141,15 +152,32 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
         matricula: str,
         categoria: str = Form(...),
         texto: str = Form(""),
+        importante: bool = Form(False),
         csrf_token: str = Form(""),
         usuario: Usuario = Depends(usuario_logado),
     ):
         verificar_csrf(request, csrf_token)
         estudante_permitido(matricula, usuario)
         try:
-            diario.anotar(sessoes, usuario.id, matricula, categoria, texto)
-            avisar(request, "Anotação salva. Só você pode ver.")
+            diario.anotar(sessoes, usuario.id, matricula, categoria, texto, importante)
+            avisar(
+                request,
+                "Anotação salva. Só você pode ver."
+                + (" O estudante aparecerá sinalizado ao lançar notas e na chamada." if importante else ""),
+            )
         except ValueError as e:
+            avisar(request, str(e), "erro")
+        return voltar(f"/alunos/{matricula}")
+
+    @app.post("/alunos/{matricula}/anotacoes/{anotacao_id}/importante")
+    def marcar_importante(
+        request: Request, matricula: str, anotacao_id: int, csrf_token: str = Form(""), usuario: Usuario = Depends(usuario_logado)
+    ):
+        verificar_csrf(request, csrf_token)
+        try:
+            agora = diario.alternar_importante(sessoes, usuario.id, anotacao_id)
+            avisar(request, "Marcada como importante." if agora else "Deixou de ser importante.")
+        except LookupError as e:
             avisar(request, str(e), "erro")
         return voltar(f"/alunos/{matricula}")
 

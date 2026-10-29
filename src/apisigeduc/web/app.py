@@ -312,6 +312,7 @@ def criar_app(
             composicoes=aplicadas,
             frequencia=diario.frequencia_da_turma(sessoes, turma.id),
             marcados=diario.contagem_anotacoes(sessoes, usuario.id, [e.matricula for e in estudantes]),
+            com_foto=turmas_repo.com_foto(sessoes, [e.matricula for e in estudantes]),
         )
 
     @app.get("/turmas/{turma_id}/{arquivo}.csv")

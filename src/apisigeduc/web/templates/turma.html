@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_foto.html" as ft %}
 {% block titulo %}{{ turma.codigo }}{% endblock %}
 {% block conteudo %}
 <div class="cartao">
@@ -26,7 +27,7 @@
     <tr><th>#</th><th>Nome</th><th>Matrícula</th><th style="text-align:right">Frequência</th></tr>
     {% for e in estudantes %}{% set f = frequencia.get(e.matricula) %}
     <tr><td class="suave">{{ loop.index }}</td>
-      <td><a href="/alunos/{{ e.matricula }}">{{ e.nome }}</a>{% if marcados.get(e.matricula) %} <span class="chip-anotacao">anotações</span>{% endif %}</td>
+      <td><span class="aluno-com-foto">{{ ft.foto(e.matricula, e.nome, e.matricula in com_foto) }}<span><a href="/alunos/{{ e.matricula }}">{{ e.nome }}</a>{% if marcados.get(e.matricula) %} <span class="sinal-importante"><span aria-hidden="true">!</span> importante</span>{% endif %}</span></span></td>
       <td>{{ e.matricula }}</td>
       <td style="text-align:right" class="num {{ 'abaixo' if f and f.abaixo_do_minimo }}">{{ (f.percentual|nota ~ "%") if f and f.percentual is not none else "—" }}</td></tr>{% endfor %}
   </table></div>

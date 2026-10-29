@@ -28,6 +28,7 @@ no `README.md`.
 | Importar turmas e estudantes (Portal do Professor > Escola Digital > Turmas > Estudantes) | **funcionando no SIGEduc real** |
 | Composição de notas em grupos e avaliações, média, Excel, modo chamada no celular, PWA | pronta e testada (falta uso real) |
 | Desempenho: indicadores, distribuição, rankings, comparação de turmas, ano letivo | pronta e testada |
+| Diário: chamada, aulas, frequência, ficha do aluno, anotações privadas (importante = sinal), fotos | pronta e testada |
 | **Digitar as médias na tela de notas do SIGEduc** | **pendente**: seletores "A MAPEAR" em `seletores.py`, rotina em `tarefas/notas.py` |
 | Lançamento de frequência no SIGEduc | pendente, mesma situação |
 
@@ -55,7 +56,12 @@ no `README.md`.
 - Notas ligadas a turma + matrícula (sobrevivem à atualização das turmas).
 - Média: soma ou média em dois níveis (grupos e avaliações); arredondamento escolar com
   1 casa (8,25 → 8,3). Planilha Excel usa fórmulas com a mesma regra.
-- PWA nunca guarda dados de alunos no aparelho; só arquivos fixos.
+- Offline (decisão do usuário): o celular guarda só pendentes (apagados após sincronizar), a
+  lista da turma e as fotos. Anotações: privadas de quem escreveu (nem o admin lê); só as
+  marcadas como importantes sinalizam o aluno na nota e na chamada. Fotos guardadas no sistema,
+  visíveis só a professores do aluno.
+- Integração com a SEEC: proposta em doc (https://claude.ai/artifact/9eaHtcdx9FGUgQ9AfKLRdW);
+  recomendação inicial = carga manual pelo administrador em janela combinada + arquivo padronizado.
 - Média mínima 6,0 (RN, `APISIGEDUC_MEDIA_MINIMA`), média anual = média dos 4 bimestres.
   Termos da LDB: "rendimento escolar", "estudos de recuperação", "menor rendimento".
   Indicadores são de acompanhamento (a frequência, 75%, ainda não é importada).

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_foto.html" as ft %}
 {% block titulo %}Notas {{ turma.codigo }}{% endblock %}
 {% block conteudo %}
 <div class="cartao">
@@ -55,7 +56,7 @@
     <tbody>
     {% for l in linhas %}
     <tr class="{{ 'pendente' if l.media is none }}">
-      <td class="aluno"><a href="/alunos/{{ l.matricula }}" class="link-aluno">{{ l.nome }}</a>{% if marcados.get(l.matricula) %} <span class="chip-anotacao" title="Você tem anotações sobre este estudante">anotações</span>{% endif %}<br><span class="suave">{{ l.matricula }}</span></td>
+      <td class="aluno"><span class="aluno-com-foto">{{ ft.foto(l.matricula, l.nome, l.matricula in com_foto) }}<span><a href="/alunos/{{ l.matricula }}" class="link-aluno">{{ l.nome }}</a>{% if marcados.get(l.matricula) %} <a class="sinal-importante" href="/alunos/{{ l.matricula }}" title="Este estudante tem observação importante; toque para ler na ficha"><span aria-hidden="true">!</span> observação importante</a>{% endif %}<br><span class="suave">{{ l.matricula }}</span></span></span></td>
       {% for g in estrutura.grupos %}
       {% for a in g.avaliacoes %}
       <td style="text-align:center" class="{{ 'col-grupo' if loop.first }}" data-coluna="{{ a.id }}"><input type="text" class="nota" inputmode="decimal" enterkeyhint="next" name="n_{{ a.id }}_{{ l.matricula }}"

@@ -56,9 +56,16 @@ def test_anotacoes_sao_privadas_de_quem_escreveu(sessoes, cenario):
     assert [a.texto for a in diario.anotacoes(sessoes, prof.id, ivan)] == ["Ainda não lê textos curtos."]
     assert diario.anotacoes(sessoes, outro.id, ivan) == []
     assert diario.anotacoes(sessoes, admin.id, ivan) == []
-    assert diario.contagem_anotacoes(sessoes, prof.id, [ivan]) == {ivan: ["leitura"]}
+    assert diario.contagem_anotacoes(sessoes, prof.id, [ivan]) == {}  # comum: só na ficha
+    nota_id = diario.anotar(sessoes, prof.id, ivan, "saude", "Usa óculos; sentar na frente.", importante=True)
+    assert diario.contagem_anotacoes(sessoes, prof.id, [ivan]) == {ivan: ["saude"]}  # importante: sinaliza
+    assert diario.contagem_anotacoes(sessoes, outro.id, [ivan]) == {}
+    assert diario.alternar_importante(sessoes, prof.id, nota_id) is False
+    assert diario.contagem_anotacoes(sessoes, prof.id, [ivan]) == {}
     with pytest.raises(LookupError):
         diario.excluir_anotacao(sessoes, outro.id, diario.anotacoes(sessoes, prof.id, ivan)[0].id)
+    with pytest.raises(LookupError):
+        diario.alternar_importante(sessoes, outro.id, nota_id)
     with pytest.raises(ValueError):
         diario.anotar(sessoes, prof.id, ivan, "inventada", "x")
 
@@ -90,10 +97,17 @@ def test_telas_do_diario(config, sessoes, repo, cenario):
     assert "salva: 1 falta(s)" in r.text and "Grécia Antiga" in r.text
     assert "Frequência abaixo de 75%" in r.text  # Ivan com 0%
 
-    # anotação pela ficha; aparece como marcador na turma
+    # anotação comum pela ficha: não sinaliza; importante: sinaliza na turma e na chamada
     r = cliente.post(f"/alunos/{ivan}/anotacoes", data={"categoria": "leitura", "texto": "Não lê textos curtos.", "csrf_token": csrf})
     assert "Só você pode ver" in r.text and "Não lê textos curtos." in r.text
-    assert "anotações" in cliente.get(f"/turmas/{turma.id}").text
+    assert "sinal-importante" not in cliente.get(f"/turmas/{turma.id}").text
+    r = cliente.post(
+        f"/alunos/{ivan}/anotacoes",
+        data={"categoria": "saude", "texto": "Usa óculos.", "importante": "true", "csrf_token": csrf},
+    )
+    assert "aparecerá sinalizado" in r.text
+    assert "sinal-importante" in cliente.get(f"/turmas/{turma.id}").text
+    assert "sinal-importante" in cliente.get(f"/turmas/{turma.id}/chamada").text
 
     # outro professor do mesmo aluno abre a ficha, mas não vê a anotação
     r = _entrar(app, "outro@escola.br", "senha-outro").get(f"/alunos/{ivan}")
@@ -108,3 +122,19 @@ def test_telas_do_diario(config, sessoes, repo, cenario):
     assert estranho.get(f"/alunos/{ivan}").status_code == 404
     assert estranho.get(f"/turmas/{turma.id}/chamada").status_code == 404
     assert estranho.get(f"/turmas/{turma.id}/aulas").status_code == 404
+
+
+def test_migracao_anotacoes_sem_importante(tmp_path):
+    from sqlalchemy import create_engine, text
+
+    from apisigeduc.banco import criar_sessoes
+
+    url = f"sqlite:///{tmp_path / 'antigo.db'}"
+    engine = create_engine(url)
+    with engine.begin() as c:
+        c.execute(text("CREATE TABLE anotacoes (id INTEGER PRIMARY KEY, autor_id INTEGER, matricula VARCHAR(50), categoria VARCHAR(40), texto TEXT, criado_em DATETIME, atualizado_em DATETIME)"))
+        c.execute(text("INSERT INTO anotacoes (id, autor_id, matricula, categoria, texto) VALUES (1, 7, '123', 'leitura', 'antiga')"))
+    engine.dispose()
+    sessoes = criar_sessoes(url)
+    [nota] = diario.anotacoes(sessoes, 7, "123")
+    assert nota.texto == "antiga" and nota.importante is False

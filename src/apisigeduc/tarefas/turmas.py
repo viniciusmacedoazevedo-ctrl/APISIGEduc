@@ -67,7 +67,13 @@ _JS_CARTOES = """
     while (cartao.parentElement && contar(cartao.parentElement.innerText || '') === 1) cartao = cartao.parentElement;
     const linhas = (cartao.innerText || '').split('\\n').map((l) => l.replace(/^[\\s•·●○◦-]+/, '').trim()).filter(Boolean);
     const nome = linhas.find((l) => !/^(matr[ií]cula|usu[aá]rio|e-?mail)\\b/i.test(l)) || '';
-    return { matricula: (el.innerText.match(padrao) || [])[1] || '', nome };
+    // foto: a maior imagem do cartão (a outra é o ícone pequeno ao lado do nome)
+    const imagens = Array.from(cartao.querySelectorAll('img')).map((img) => {
+      const r = img.getBoundingClientRect();
+      return { src: img.currentSrc || img.src || '', area: r.width * r.height };
+    }).filter((i) => /^https?:/.test(i.src)).sort((a, b) => b.area - a.area);
+    const foto = imagens.length && imagens[0].area >= 900 ? imagens[0].src : '';
+    return { matricula: (el.innerText.match(padrao) || [])[1] || '', nome, foto };
   });
 }
 """
@@ -148,8 +154,31 @@ def estudantes_dos_cartoes(cartoes: list[dict]) -> list[Estudante]:
         nome = re.sub(r"\s+", " ", cartao.get("nome", "")).strip()
         matricula = cartao.get("matricula", "")
         if matricula and nome and matricula not in vistos:
-            vistos[matricula] = Estudante(matricula=matricula, nome=nome)
+            vistos[matricula] = Estudante(matricula=matricula, nome=nome, foto_url=cartao.get("foto", "") or "")
     return list(vistos.values())
+
+
+FOTO_TAMANHO_MAXIMO = 400 * 1024
+
+
+def impressao(dados: bytes) -> str:
+    import hashlib
+
+    return hashlib.sha256(dados).hexdigest()
+
+
+def descartar_fotos_padrao(estudantes: list[Estudante]) -> list[Estudante]:
+    """Remove a imagem genérica (silhueta) que o SIGEduc mostra para quem não tem foto.
+    Uma foto real é de um único estudante; a mesma imagem para duas matrículas
+    diferentes é a silhueta."""
+    from dataclasses import replace
+
+    donos: dict[str, set[str]] = {}
+    for e in estudantes:
+        if e.foto:
+            donos.setdefault(impressao(e.foto), set()).add(e.matricula)
+    genericas = {h for h, matriculas in donos.items() if len(matriculas) >= 2}
+    return [replace(e, foto=None, foto_tipo="") if e.foto and impressao(e.foto) in genericas else e for e in estudantes]
 
 
 def estudantes_da_tabela(tabelas: list[list[list[str]]]) -> list[Estudante]:
@@ -161,6 +190,18 @@ def estudantes_da_tabela(tabelas: list[list[list[str]]]) -> list[Estudante]:
         if re.search(r"\d", matricula) and nome:
             estudantes.append(Estudante(matricula=matricula, nome=nome))
     return estudantes
+
+
+def _tipo_imagem(dados: bytes) -> str:
+    if dados[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if dados[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if dados[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if dados[:4] == b"RIFF" and dados[8:12] == b"WEBP":
+        return "image/webp"
+    return ""
 
 
 class LeitorPortal:
@@ -258,6 +299,24 @@ class LeitorPortal:
             raise LookupError(f"Item 'Estudantes' do menu Turmas não encontrado na turma {turma.codigo} ({pagina.url})")
         item.click()
 
+    def _baixar_foto(self, pagina, estudante: Estudante) -> Estudante:
+        """Baixa a foto com a sessão do navegador (os cookies do login do professor).
+        Falha ao baixar não impede a leitura do estudante."""
+        from dataclasses import replace
+
+        if not estudante.foto_url:
+            return estudante
+        try:
+            resposta = pagina.request.get(estudante.foto_url, timeout=15000)
+            dados = resposta.body() if resposta.ok else b""
+        except Exception:
+            log.debug("Falha ao baixar a foto de %s", estudante.matricula, exc_info=True)
+            return estudante
+        tipo = _tipo_imagem(dados)  # confere o conteúdo, não o que o servidor diz
+        if not tipo or len(dados) > FOTO_TAMANHO_MAXIMO:
+            return estudante
+        return replace(estudante, foto=dados, foto_tipo=tipo)
+
     def listar_estudantes(self, turma: TurmaPortal) -> list[Estudante]:
         pagina = self.abrir_turma(turma)
         try:
@@ -267,7 +326,7 @@ class LeitorPortal:
             estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES))
             if not estudantes:  # layout em tabela
                 estudantes = estudantes_da_tabela(pagina.evaluate(_JS_TABELAS))
-            return estudantes
+            return descartar_fotos_padrao([self._baixar_foto(pagina, e) for e in estudantes])
         finally:
             if pagina is not self.page:
                 pagina.close()
@@ -296,4 +355,13 @@ def sincronizar(cliente: SigeducCliente) -> tuple[list, Relatorio]:
             relatorio.falhas.append(f"{turma.codigo}/{turma.componente}: {(str(e).splitlines() or [repr(e)])[0]}")
             resultados.append((turma, None))
         cliente.pausa()
+    # silhueta repetida entre turmas diferentes também é descartada
+    todos = descartar_fotos_padrao([e for _, lista in resultados if lista for e in lista])
+    sem_foto = {e.matricula for e in todos if not e.foto}
+    from dataclasses import replace as _replace
+
+    resultados = [
+        (t, None if lista is None else [_replace(e, foto=None, foto_tipo="") if e.matricula in sem_foto and e.foto else e for e in lista])
+        for t, lista in resultados
+    ]
     return resultados, relatorio

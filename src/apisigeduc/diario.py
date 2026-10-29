@@ -136,7 +136,9 @@ def frequencia_da_turma(sessoes: sessionmaker, turma_id: int) -> dict[str, Resum
 
 
 # --- anotações (privadas de quem escreveu) -----------------------------------------
-def anotar(sessoes: sessionmaker, autor_id: int, matricula: str, categoria: str, texto: str) -> int:
+def anotar(
+    sessoes: sessionmaker, autor_id: int, matricula: str, categoria: str, texto: str, importante: bool = False
+) -> int:
     if categoria not in CATEGORIAS:
         raise ValueError("Categoria inválida")
     texto = texto.strip()
@@ -145,7 +147,7 @@ def anotar(sessoes: sessionmaker, autor_id: int, matricula: str, categoria: str,
     if len(texto) > TAMANHO_MAXIMO_TEXTO:
         raise ValueError(f"A anotação passa de {TAMANHO_MAXIMO_TEXTO} caracteres")
     with sessoes.begin() as sessao:
-        nota = Anotacao(autor_id=autor_id, matricula=matricula, categoria=categoria, texto=texto)
+        nota = Anotacao(autor_id=autor_id, matricula=matricula, categoria=categoria, texto=texto, importante=importante)
         sessao.add(nota)
         sessao.flush()
         return nota.id
@@ -164,13 +166,14 @@ def anotacoes(sessoes: sessionmaker, autor_id: int, matricula: str) -> list[Anot
 
 
 def contagem_anotacoes(sessoes: sessionmaker, autor_id: int, matriculas: list[str]) -> dict[str, list[str]]:
-    """{matrícula: categorias anotadas} para marcar os estudantes nas listas."""
+    """{matrícula: categorias das anotações IMPORTANTES} para sinalizar o estudante ao
+    lançar nota e na chamada (as demais anotações ficam só na ficha)."""
     if not matriculas:
         return {}
     with sessoes() as sessao:
         linhas = sessao.execute(
             select(Anotacao.matricula, Anotacao.categoria).where(
-                Anotacao.autor_id == autor_id, Anotacao.matricula.in_(matriculas)
+                Anotacao.autor_id == autor_id, Anotacao.matricula.in_(matriculas), Anotacao.importante.is_(True)
             )
         ).all()
     resultado: dict[str, list[str]] = {}
@@ -196,3 +199,12 @@ def turmas_do_estudante(sessoes: sessionmaker, usuario_id: int | None, matricula
         consulta = consulta.where(Turma.usuario_id == usuario_id)
     with sessoes() as sessao:
         return [(t, e) for t, e in sessao.execute(consulta.order_by(Turma.codigo, Turma.componente))]
+
+
+def alternar_importante(sessoes: sessionmaker, autor_id: int, anotacao_id: int) -> bool:
+    with sessoes.begin() as sessao:
+        nota = sessao.get(Anotacao, anotacao_id)
+        if nota is None or nota.autor_id != autor_id:
+            raise LookupError("Anotação não encontrada")
+        nota.importante = not nota.importante
+        return nota.importante

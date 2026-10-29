@@ -86,3 +86,6 @@ class TurmaPortal:
 class Estudante:
     matricula: str
     nome: str
+    foto_url: str = ""  # endereço da foto no SIGEduc (lido do cartão)
+    foto: bytes | None = None  # foto baixada com a sessão do professor
+    foto_tipo: str = ""

@@ -182,6 +182,19 @@ class NotaItem(Base):
     valor: Mapped[float] = mapped_column(Float)
 
 
+class FotoEstudante(Base):
+    """Foto do estudante copiada do SIGEduc, para o professor reconhecê-lo. Uma por
+    matrícula; só professores do estudante podem vê-la."""
+
+    __tablename__ = "fotos_estudantes"
+
+    matricula: Mapped[str] = mapped_column(String(50), primary_key=True)
+    conteudo: Mapped[bytes] = mapped_column(LargeBinary)
+    tipo: Mapped[str] = mapped_column(String(40))
+    impressao: Mapped[str] = mapped_column(String(64), index=True)  # sha256 do conteúdo
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class Aula(Base):
     """Aula dada numa turma: data, quantas aulas (geminadas contam 2), conteúdo e
     observações da aula. A chamada fica em Frequencia."""
@@ -222,6 +235,8 @@ class Anotacao(Base):
     matricula: Mapped[str] = mapped_column(String(50), index=True)
     categoria: Mapped[str] = mapped_column(String(40))
     texto: Mapped[str] = mapped_column(Text)
+    # importante: sinaliza o estudante na hora de lançar nota e na chamada
+    importante: Mapped[bool] = mapped_column(Boolean, default=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -236,7 +251,10 @@ def normalizar_url(url: str) -> str:
 def migrar(engine) -> None:
     """Ajustes em bancos criados por versões anteriores (create_all não altera tabelas)."""
     colunas = {c["name"] for c in inspect(engine).get_columns("itens_composicao")}
+    colunas_anotacoes = {c["name"] for c in inspect(engine).get_columns("anotacoes")}
     with engine.begin() as conexao:
+        if "importante" not in colunas_anotacoes:
+            conexao.execute(text("ALTER TABLE anotacoes ADD COLUMN importante BOOLEAN NOT NULL DEFAULT FALSE"))
         if "grupo_id" not in colunas:
             conexao.execute(text("ALTER TABLE itens_composicao ADD COLUMN grupo_id INTEGER"))
         # itens antigos, sem grupo: cada um vira um grupo com uma avaliação (mesmo resultado)

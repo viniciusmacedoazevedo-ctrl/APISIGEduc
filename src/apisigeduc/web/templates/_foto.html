@@ -1,0 +1,4 @@
+{# Foto do estudante (ou a inicial do nome, se não houver). Servida só a professores do estudante. #}
+{% macro foto(matricula, nome, tem_foto, grande=False) %}
+<span class="foto-aluno{{ ' grande' if grande }}" aria-hidden="true">{% if tem_foto %}<img src="/alunos/{{ matricula }}/foto" alt="" loading="lazy" width="{{ 72 if grande else 40 }}" height="{{ 72 if grande else 40 }}">{% else %}{{ nome[:1] }}{% endif %}</span>
+{% endmacro %}

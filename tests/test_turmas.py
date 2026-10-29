@@ -153,3 +153,61 @@ def test_sincronizacao_pela_fila(repo, sessoes, config):
     assert (envio.total, envio.sucesso) == (2, 1)
     assert envio.mensagem == "2 turma(s) encontrada(s), 1 estudante(s) importado(s)"
     assert len(turmas_repo.listar(sessoes, u.id)) == 2
+
+
+PNG_A = b"\x89PNG\r\n\x1a\n" + b"foto-a" * 10
+PNG_B = b"\x89PNG\r\n\x1a\n" + b"foto-b" * 10
+SILHUETA = b"\x89PNG\r\n\x1a\n" + b"silhueta" * 10
+
+
+def test_descarta_silhueta_mesmo_com_um_aluno_sem_foto_por_turma():
+    from apisigeduc.tarefas.turmas import _tipo_imagem, descartar_fotos_padrao
+
+    est = [
+        Estudante("1", "ANA", foto=PNG_A, foto_tipo="image/png"),
+        Estudante("2", "BIA", foto=SILHUETA, foto_tipo="image/png"),
+        Estudante("3", "CAIO", foto=SILHUETA, foto_tipo="image/png"),
+        Estudante("1", "ANA", foto=PNG_A, foto_tipo="image/png"),  # mesma aluna em outra turma
+    ]
+    assert [bool(e.foto) for e in descartar_fotos_padrao(est)] == [True, False, False, True]
+    assert _tipo_imagem(PNG_A) == "image/png" and _tipo_imagem(b"<html>") == ""
+
+
+def test_foto_guardada_e_silhueta_detectada_entre_buscas(repo, sessoes):
+    u = _prof(repo)
+    t = TurmaPortal("EFV6A", componente="História")
+    turmas_repo.salvar(sessoes, u.id, [(t, [Estudante("1", "ANA", foto=PNG_A, foto_tipo="image/png"), Estudante("2", "BIA", foto=SILHUETA, foto_tipo="image/png")])])
+    assert turmas_repo.com_foto(sessoes, ["1", "2"]) == {"1", "2"}  # sozinha, a silhueta ainda passa
+    # na busca seguinte outra matrícula vem com a mesma imagem: era a silhueta, as duas saem
+    t2 = TurmaPortal("EFM6A", componente="História")
+    turmas_repo.salvar(sessoes, u.id, [(t2, [Estudante("3", "CAIO", foto=SILHUETA, foto_tipo="image/png")])])
+    assert turmas_repo.com_foto(sessoes, ["1", "2", "3"]) == {"1"}
+    # sem foto nova, mantém a anterior
+    turmas_repo.salvar(sessoes, u.id, [(t, [Estudante("1", "ANA")])])
+    assert turmas_repo.foto(sessoes, "1").conteudo == PNG_A
+
+
+def test_foto_so_para_professores_do_aluno(config, sessoes, repo):
+    import re
+
+    from fastapi.testclient import TestClient
+
+    from apisigeduc.web.app import criar_app
+
+    u = _prof(repo)
+    repo.criar("outro@escola.br", "Outro", "senha-outro")
+    turmas_repo.salvar(sessoes, u.id, [(TurmaPortal("EFV6A", componente="História"), [Estudante("1", "ANA", foto=PNG_B, foto_tipo="image/png")])])
+    app = criar_app(config, sessoes, repo, iniciar_worker=False)
+
+    def entrar(email, senha):
+        c = TestClient(app)
+        csrf = re.search(r'name="csrf_token" value="([^"]+)"', c.get("/login").text).group(1)
+        c.post("/login", data={"email": email, "senha": senha, "csrf_token": csrf})
+        return c
+
+    prof = entrar("prof@escola.br", "senha-forte")
+    r = prof.get("/alunos/1/foto")
+    assert r.status_code == 200 and r.content == PNG_B and r.headers["cache-control"].startswith("private")
+    assert 'src="/alunos/1/foto"' in prof.get("/alunos/1").text
+    assert entrar("outro@escola.br", "senha-outro").get("/alunos/1/foto").status_code == 404
+    assert TestClient(app).get("/alunos/1/foto", follow_redirects=False).status_code == 303

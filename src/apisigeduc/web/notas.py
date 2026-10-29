@@ -214,6 +214,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             linhas=linhas,
             completos=sum(1 for l in linhas if l.media is not None),
             marcados=diario.contagem_anotacoes(sessoes, usuario.id, [l.matricula for l in linhas]),
+            com_foto=turmas_repo.com_foto(sessoes, [l.matricula for l in linhas]),
         )
 
     @app.post("/notas/{composicao_id}/turmas/{turma_id}")
