@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block titulo %}{{ turma.codigo }}{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h1>{{ turma.codigo }} · {{ turma.componente }}</h1>
+  <p class="suave">{{ turma.codigo | descrever_turma }}<br>{{ turma.escola }} · {{ turma.etapa }} · {{ turma.ano_serie }}<br>
+    Atualizada em {{ turma.sincronizado_em | data }}</p>
+  <div class="botoes">
+    <a class="botao secundario" href="/turmas/{{ turma.id }}/estudantes.csv">Baixar lista de estudantes</a>
+    <a class="botao secundario" href="/turmas/{{ turma.id }}/modelo-notas.csv">Baixar modelo de notas</a>
+    <a class="botao secundario" href="/turmas/{{ turma.id }}/modelo-frequencia.csv">Baixar modelo de frequência</a>
+  </div>
+  <p class="suave">Os modelos já vêm com matrícula, turma e componente. Preencha bimestre e nota (ou data
+    e presença) e envie em <a href="/">Envios</a>.</p>
+</div>
+<div class="cartao">
+  <h2>Estudantes ({{ estudantes|length }}{% if turma.qtd_estudantes is not none %} · o portal informa {{ turma.qtd_estudantes }}{% endif %})</h2>
+  {% if estudantes %}
+  <div class="tabela"><table>
+    <tr><th>#</th><th>Nome</th><th>Matrícula</th></tr>
+    {% for e in estudantes %}<tr><td class="suave">{{ loop.index }}</td><td>{{ e.nome }}</td><td>{{ e.matricula }}</td></tr>{% endfor %}
+  </table></div>
+  {% else %}
+  <p class="suave">Nenhum estudante importado para esta turma.</p>
+  {% endif %}
+  <div class="botoes"><a class="botao secundario" href="/turmas">Voltar</a></div>
+</div>
+{% endblock %}

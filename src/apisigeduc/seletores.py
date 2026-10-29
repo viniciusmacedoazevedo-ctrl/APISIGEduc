@@ -42,3 +42,17 @@ FREQ_LINHA_ALUNO = "tr:has(td:text-is('{matricula}'))"
 FREQ_CHECK_FALTA = "input[type='checkbox']"
 FREQ_SALVAR = "input[value='Salvar'], button:has-text('Salvar')"
 FREQ_SUCESSO = ".info, .msgSucesso, text=sucesso"
+
+# --- Portal do Professor: turmas e estudantes --------------------------------
+# Após o login aparece "Módulos do SIGEduc"; "Portal do Professor" é um quadro
+# (ícone). Dentro da Escola Digital ele aparece no caminho (breadcrumb).
+PORTAL_PROFESSOR = (
+    "a:has-text('Portal do Professor'), "
+    "input[value*='Portal do Professor'], "
+    "button:has-text('Portal do Professor'), "
+    ":text-is('Portal do Professor')"
+)
+# A tabela "Minhas Turmas" é localizada pelos nomes das colunas (tarefas/turmas.py).
+# Ao clicar no código da turma (ex.: EFV6A) abre a Escola Digital da turma;
+# no menu lateral Turmas > Estudantes ficam os cartões com nome e matrícula.
+TURMA_ESTUDANTES = "a:text-is('Estudantes'), a:has-text('Estudantes')"

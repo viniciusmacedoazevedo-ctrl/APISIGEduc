@@ -16,6 +16,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     func,
 )
@@ -62,7 +63,7 @@ class Envio(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
-    tipo: Mapped[str] = mapped_column(String(20))  # notas | frequencia
+    tipo: Mapped[str] = mapped_column(String(20))  # notas | frequencia | turmas
     arquivo_nome: Mapped[str] = mapped_column(String(255))
     arquivo: Mapped[bytes] = mapped_column(LargeBinary)
     # pendente -> processando -> concluido | concluido_com_falhas | falhou
@@ -74,6 +75,33 @@ class Envio(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     iniciado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     concluido_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Turma(Base):
+    """Turma do professor, importada do Portal do Professor do SIGEduc."""
+
+    __tablename__ = "turmas"
+    __table_args__ = (UniqueConstraint("usuario_id", "codigo", "componente", "escola"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    codigo: Mapped[str] = mapped_column(String(50))  # ex.: EFV6A
+    escola: Mapped[str] = mapped_column(String(300), default="")
+    etapa: Mapped[str] = mapped_column(String(200), default="")
+    ano_serie: Mapped[str] = mapped_column(String(100), default="")
+    componente: Mapped[str] = mapped_column(String(200), default="")
+    qtd_estudantes: Mapped[int | None] = mapped_column(Integer, nullable=True)  # informado pelo portal
+    sincronizado_em: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Estudante(Base):
+    __tablename__ = "estudantes"
+    __table_args__ = (UniqueConstraint("turma_id", "matricula"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
+    matricula: Mapped[str] = mapped_column(String(50))
+    nome: Mapped[str] = mapped_column(String(300))
 
 
 def normalizar_url(url: str) -> str:

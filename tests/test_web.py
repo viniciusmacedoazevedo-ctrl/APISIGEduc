@@ -115,3 +115,41 @@ def test_recusa_segredo_de_sessao_fraco(config, sessoes, repo):
 
     with pytest.raises(ConfigError):
         criar_app(replace(config, segredo_sessao="@hiperlink"), sessoes, repo, iniciar_worker=False)
+
+
+def test_turmas_na_web(app, sessoes, repo):
+    from apisigeduc import turmas as turmas_repo
+    from apisigeduc.modelos import Estudante, TurmaPortal
+
+    prof = repo.por_email("prof@escola.br")
+    turmas_repo.salvar(
+        sessoes,
+        prof.id,
+        [(TurmaPortal("EFV6A", "ESCOLA X", "EF", "6º ANO", "História", 2), [Estudante("202630270867", "IVAN GLEYSON")])],
+    )
+    [(turma, _)] = turmas_repo.listar(sessoes, prof.id)
+
+    cliente = _entrar(app, "prof@escola.br", "senha-prof")
+    r = cliente.get("/turmas")
+    assert "EFV6A" in r.text and "Vespertino" in r.text and "portal: 2" in r.text
+    assert "Cadastre sua" in r.text  # sem senha do SIGEduc, sem botão de busca
+
+    r = cliente.get(f"/turmas/{turma.id}")
+    assert "IVAN GLEYSON" in r.text and "202630270867" in r.text
+
+    r = cliente.get(f"/turmas/{turma.id}/modelo-notas.csv")
+    assert r.headers["content-type"].startswith("text/csv")
+    linhas = r.content.decode("utf-8-sig").splitlines()
+    assert linhas == ["matricula;nome;turma;disciplina;bimestre;nota", "202630270867;IVAN GLEYSON;EFV6A;História;;"]
+
+    # pedir a busca
+    repo.definir_credencial(prof.id, "p", "s")
+    csrf = _csrf(cliente, "/turmas")
+    r = cliente.post("/turmas/sincronizar", data={"csrf_token": csrf})
+    assert "na fila" in r.text and "Busca em andamento" in r.text
+
+    # outro professor não vê a turma
+    repo.criar("outro@escola.br", "Outro", "senha-outro")
+    outro = _entrar(app, "outro@escola.br", "senha-outro")
+    assert outro.get(f"/turmas/{turma.id}").status_code == 404
+    assert outro.get(f"/turmas/{turma.id}/estudantes.csv").status_code == 404

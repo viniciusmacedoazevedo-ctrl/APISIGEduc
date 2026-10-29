@@ -10,7 +10,11 @@
     <tr><th>Enviado em</th><td>{{ envio.criado_em | data }}</td></tr>
     <tr><th>Início</th><td>{{ envio.iniciado_em | data }}</td></tr>
     <tr><th>Fim</th><td>{{ envio.concluido_em | data }}</td></tr>
+    {% if envio.tipo == "turmas" %}
+    <tr><th>Turmas lidas</th><td>{{ envio.sucesso }} de {{ envio.total }} · <a href="/turmas">ver turmas</a></td></tr>
+    {% else %}
     <tr><th>Lançados</th><td>{{ envio.sucesso }} de {{ envio.total }}</td></tr>
+    {% endif %}
     {% if envio.mensagem %}<tr><th>Mensagem</th><td>{{ envio.mensagem }}</td></tr>{% endif %}
   </table></div>
   {% if envio.falhas %}<h2 style="margin-top:20px">Falhas</h2><pre>{{ envio.falhas }}</pre>{% endif %}

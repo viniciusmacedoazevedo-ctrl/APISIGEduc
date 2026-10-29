@@ -10,6 +10,7 @@ from typing import Callable
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from . import turmas as turmas_repo
 from .banco import Envio
 from .config import Config
 from .planilhas import CONVERSORES, converter, ler_conteudo
@@ -23,8 +24,9 @@ TAMANHO_MAXIMO = 5 * 1024 * 1024  # 5 MB
 def _executores() -> dict[str, Callable]:
     from .tarefas.frequencia import lancar_frequencia
     from .tarefas.notas import lancar_notas
+    from .tarefas.turmas import sincronizar
 
-    return {"notas": lancar_notas, "frequencia": lancar_frequencia}
+    return {"notas": lancar_notas, "frequencia": lancar_frequencia, "turmas": sincronizar}
 
 
 def validar(tipo: str, nome: str, dados: bytes):
@@ -42,6 +44,25 @@ def criar(sessoes: sessionmaker, usuario_id: int, tipo: str, nome: str, dados: b
         sessao.add(envio)
         sessao.flush()
         return envio.id
+
+
+def pedir_sincronizacao(sessoes: sessionmaker, usuario_id: int) -> tuple[int, bool]:
+    """Põe na fila a busca de turmas e estudantes. Se já houver uma pendente,
+    devolve ela. Retorna (id do envio, criado agora?)."""
+    with sessoes.begin() as sessao:
+        existente = sessao.scalar(
+            select(Envio.id).where(
+                Envio.usuario_id == usuario_id,
+                Envio.tipo == "turmas",
+                Envio.status.in_(("pendente", "processando")),
+            )
+        )
+        if existente:
+            return existente, False
+        envio = Envio(usuario_id=usuario_id, tipo="turmas", arquivo_nome="Portal do Professor", arquivo=b"")
+        sessao.add(envio)
+        sessao.flush()
+        return envio.id, True
 
 
 def listar(sessoes: sessionmaker, usuario_id: int | None = None, limite: int = 50) -> list[Envio]:
@@ -103,6 +124,9 @@ def processar_proximo(
     executores = executores or _executores()
 
     try:
+        if envio.tipo == "turmas":
+            _sincronizar_turmas(sessoes, repo, config, envio, abrir_cliente, executores["turmas"])
+            return True
         leitura = validar(envio.tipo, envio.arquivo_nome, envio.arquivo)
         credencial = repo.credencial(envio.usuario_id)
         with abrir_cliente(config, credencial) as cliente:
@@ -121,6 +145,24 @@ def processar_proximo(
         log.exception("Envio %d falhou", envio.id)
         _finalizar(sessoes, envio.id, status="falhou", mensagem=str(e).splitlines()[0] if str(e) else repr(e))
     return True
+
+
+def _sincronizar_turmas(sessoes, repo, config, envio, abrir_cliente, sincronizar) -> None:
+    credencial = repo.credencial(envio.usuario_id)
+    with abrir_cliente(config, credencial) as cliente:
+        cliente.login()
+        resultados, relatorio = sincronizar(cliente)
+    n_turmas, n_estudantes = turmas_repo.salvar(sessoes, envio.usuario_id, resultados)
+    lidas = sum(1 for _, estudantes in resultados if estudantes is not None)
+    _finalizar(
+        sessoes,
+        envio.id,
+        status="concluido_com_falhas" if relatorio.falhas else "concluido",
+        total=n_turmas,
+        sucesso=lidas,
+        falhas="\n".join(relatorio.falhas),
+        mensagem=f"{n_turmas} turma(s) encontrada(s), {n_estudantes} estudante(s) importado(s)",
+    )
 
 
 def rodar_worker(

@@ -53,6 +53,7 @@
   <a class="marca" href="/">APISIGEduc</a>
   {% if usuario %}
     <a href="/">Envios</a>
+    <a href="/turmas">Turmas</a>
     <a href="/credencial">Senha do SIGEduc</a>
     {% if usuario.admin %}<a href="/admin/usuarios">Usuários</a>{% endif %}
     <a href="/conta">{{ usuario.nome or usuario.email }}</a>

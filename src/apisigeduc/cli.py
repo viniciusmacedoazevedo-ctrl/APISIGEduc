@@ -5,6 +5,7 @@
   credencial EMAIL       cadastra a senha do SIGEduc de um usuário
   web                    inicia a tela web (com o processamento da fila)
   worker                 processa a fila de envios separadamente
+  turmas --usuario EMAIL busca turmas e estudantes no Portal do Professor
   login | mapear         testa o login / abre o SIGEduc com o Playwright Inspector
   notas | frequencia     lança uma planilha direto, sem passar pela fila
 """
@@ -126,6 +127,27 @@ def _cliente(email: str, headless: bool | None = None):
     return SigeducCliente(config, repo.credencial(repo.por_email(email).id))
 
 
+def cmd_turmas(args) -> int:
+    from . import turmas as turmas_repo
+    from .cliente import SigeducCliente
+    from .modelos import descrever_turma
+    from .tarefas.turmas import sincronizar
+
+    config, sessoes, repo = _contexto()
+    usuario = repo.por_email(args.usuario)
+    with SigeducCliente(config, repo.credencial(usuario.id)) as cliente:
+        cliente.login()
+        resultados, relatorio = sincronizar(cliente)
+    n_turmas, n_estudantes = turmas_repo.salvar(sessoes, usuario.id, resultados)
+    for turma, estudantes in resultados:
+        lidos = "falhou" if estudantes is None else f"{len(estudantes)} estudante(s)"
+        print(f"{turma.codigo:<8} {turma.componente:<20} {lidos:<16} {descrever_turma(turma.codigo)} · {turma.escola}")
+    for falha in relatorio.falhas:
+        log.warning(falha)
+    print(f"{n_turmas} turma(s), {n_estudantes} estudante(s) gravados no banco.")
+    return 0 if not relatorio.falhas else 2
+
+
 def cmd_login(args) -> int:
     with _cliente(args.usuario) as cliente:
         cliente.login()
@@ -209,6 +231,7 @@ def criar_parser() -> argparse.ArgumentParser:
     sub.add_parser("worker", help="processa a fila de envios").set_defaults(func=cmd_worker)
 
     for nome, func, ajuda in (
+        ("turmas", cmd_turmas, "busca turmas e estudantes no Portal do Professor"),
         ("login", cmd_login, "testa o login no SIGEduc de um usuário"),
         ("mapear", cmd_mapear, "abre o SIGEduc logado com o Playwright Inspector"),
     ):

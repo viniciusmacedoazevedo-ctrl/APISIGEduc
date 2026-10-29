@@ -19,6 +19,7 @@ pessoa faria.
 | Usuários e administração (criar, desativar, redefinir senha) | pronta e testada |
 | Senha do SIGEduc por usuário, criptografada no PostgreSQL | pronta e testada |
 | Fila de processamento (worker) | pronta e testada |
+| Importar turmas e estudantes do Portal do Professor | pronta; testada com telas no formato do SIGEduc, confirmar no sistema real |
 | Login no SIGEduc | implementado; confirmar no sistema real |
 | Lançamento de notas e frequência | estrutura pronta; seletores das telas **a mapear** em `src/apisigeduc/seletores.py` |
 
@@ -99,6 +100,26 @@ pegar o mesmo envio.
 
 O administrador vê os envios de todos os usuários.
 
+### Turmas e estudantes
+
+No menu **Turmas**, o botão **Buscar turmas e estudantes no SIGEduc** põe na fila uma busca
+que, com o login do SIGEduc da pessoa:
+
+1. abre o **Portal do Professor** e lê a tabela "Minhas Turmas" (turma, escola, etapa de
+   ensino, ano/série, componente e quantidade de estudantes);
+2. em cada turma, abre a Escola Digital, vai em **Turmas > Estudantes** e lê o nome e a
+   matrícula de cada estudante.
+
+O código da turma é interpretado: `EFV6A` = Ensino Fundamental, Vespertino, 6º ano A
+(`EFM` = Matutino). Se a quantidade lida diferir da informada pelo portal, a turma é
+marcada. A cada busca a lista de estudantes de cada turma é substituída pela nova; se a
+leitura de uma turma falhar, a lista anterior é mantida.
+
+Em cada turma dá para baixar a lista de estudantes e **modelos de planilha de notas e de
+frequência** já preenchidos com matrícula, nome, turma e componente.
+
+Pelo terminal: `apisigeduc turmas --usuario seu@email.com`.
+
 ### Formato das planilhas
 
 O CSV pode usar `;` ou `,` como separador (CSV salvo pelo Excel também funciona). Os
@@ -165,17 +186,18 @@ reinstaladas automaticamente. Depois de uma atualização, reinicie o `apisigedu
 src/apisigeduc/
   cli.py          linha de comando
   config.py       leitura do .env
-  banco.py        tabelas: usuarios, credenciais_sigeduc, envios
+  banco.py        tabelas: usuarios, credenciais_sigeduc, envios, turmas, estudantes
   senhas.py       hash das senhas de acesso
   cripto.py       criptografia das senhas do SIGEduc
   usuarios.py     usuários e credenciais
   envios.py       fila de planilhas e worker
+  turmas.py       turmas e estudantes importados
   web/            tela web (FastAPI + modelos HTML)
   cliente.py      sessão do navegador e login no SIGEduc
   seletores.py    seletores das telas (único arquivo a ajustar se o layout mudar)
   modelos.py      Nota, Frequencia e suas validações
   planilhas.py    leitura de .csv/.xlsx
-  tarefas/        rotinas de lançamento (notas, frequência)
+  tarefas/        rotinas no SIGEduc (notas, frequência, leitura de turmas)
 tests/            testes (pytest)
 exemplos/         planilhas de exemplo
 ```
@@ -193,6 +215,8 @@ testes e defina `APISIGEDUC_TESTE_BANCO_URL` (ele é apagado a cada teste).
 
 - Nunca versione o arquivo `.env` (ele já está no `.gitignore`).
 - Use apenas com credenciais próprias e para turmas sob sua responsabilidade.
+- Nomes e matrículas de estudantes são dados pessoais (LGPD): restrinja o acesso ao
+  servidor e ao banco, e não compartilhe as listas exportadas fora da escola.
 - Para acesso fora da rede local, coloque a tela web atrás de HTTPS (ex.: IIS, nginx ou
   Caddy como proxy reverso) e inicie com `apisigeduc web --https`.
 - `SIGEDUC_PAUSA_MS` define uma pausa entre lançamentos para não sobrecarregar o sistema.

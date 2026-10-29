@@ -14,7 +14,7 @@
       <div>
         <label for="tipo">O que lançar</label>
         <select id="tipo" name="tipo">
-          {% for valor, nome in TIPOS.items() %}<option value="{{ valor }}">{{ nome }}</option>{% endfor %}
+          {% for valor, nome in TIPOS_PLANILHA.items() %}<option value="{{ valor }}">{{ nome }}</option>{% endfor %}
         </select>
       </div>
       <div>
@@ -45,7 +45,7 @@
       <td>{{ e.arquivo_nome }}</td>
       <td>{{ e.criado_em | data }}</td>
       <td><span class="selo {{ e.status }}">{{ STATUS.get(e.status, e.status) }}</span></td>
-      <td class="suave">{% if e.status in ("concluido", "concluido_com_falhas") %}{{ e.sucesso }} de {{ e.total }}{% elif e.status == "falhou" %}{{ e.mensagem[:80] }}{% else %}{{ e.total }} registro(s){% endif %}</td>
+      <td class="suave">{% if e.tipo == "turmas" and e.mensagem %}{{ e.mensagem }}{% elif e.status in ("concluido", "concluido_com_falhas") %}{{ e.sucesso }} de {{ e.total }}{% elif e.status == "falhou" %}{{ e.mensagem[:80] }}{% else %}{{ e.total }} registro(s){% endif %}</td>
     </tr>
     {% endfor %}
   </table></div>

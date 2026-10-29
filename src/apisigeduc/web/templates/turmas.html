@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}Turmas{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <h2>Minhas turmas no SIGEduc</h2>
+  <p class="suave">Busca no Portal do Professor as turmas (escola, etapa, ano/série, componente) e,
+    em cada turma, o nome e a matrícula dos estudantes.</p>
+  {% if pendente %}
+    <div class="alerta">Busca em andamento ({{ STATUS.get(pendente.status) }}). A página se atualiza
+      sozinha. <a href="/envios/{{ pendente.id }}">Acompanhar</a></div>
+  {% elif not credencial %}
+    <div class="alerta">Cadastre sua <a href="/credencial">senha do SIGEduc</a> para buscar as turmas.</div>
+  {% else %}
+    <form method="post" action="/turmas/sincronizar">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <button class="botao">{{ "Atualizar" if turmas else "Buscar" }} turmas e estudantes no SIGEduc</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  {% if turmas %}
+  <div class="tabela"><table>
+    <tr><th>Turma</th>{% if usuario.admin %}<th>Professor</th>{% endif %}<th>Escola</th><th>Etapa</th><th>Ano/Série</th><th>Componente</th><th>Estudantes</th><th>Atualizada em</th></tr>
+    {% for t, n in turmas %}
+    <tr>
+      <td><a href="/turmas/{{ t.id }}"><strong>{{ t.codigo }}</strong></a><br><span class="suave">{{ t.codigo | descrever_turma }}</span></td>
+      {% if usuario.admin %}<td>{{ nomes.get(t.usuario_id, t.usuario_id) }}</td>{% endif %}
+      <td>{{ t.escola }}</td>
+      <td>{{ t.etapa }}</td>
+      <td>{{ t.ano_serie }}</td>
+      <td>{{ t.componente }}</td>
+      <td>{{ n }}{% if t.qtd_estudantes is not none and t.qtd_estudantes != n %} <span class="selo concluido_com_falhas" title="Quantidade informada pelo portal">portal: {{ t.qtd_estudantes }}</span>{% endif %}</td>
+      <td class="suave">{{ t.sincronizado_em | data }}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}
+  <p class="suave">Nenhuma turma importada ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}

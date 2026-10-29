@@ -3,20 +3,26 @@ envia planilhas, que entram numa fila processada em segundo plano."""
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
+import re
 import secrets
+import unicodedata
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
 from .. import envios
-from ..banco import Usuario
+from .. import turmas as turmas_repo
+from ..banco import Turma, Usuario
+from ..modelos import descrever_turma
 from ..config import Config, ConfigError
 from ..usuarios import RepositorioUsuarios, UsuarioNaoEncontrado
 
@@ -29,11 +35,27 @@ STATUS = {
     "concluido_com_falhas": "Concluído com falhas",
     "falhou": "Falhou",
 }
-TIPOS = {"notas": "Notas", "frequencia": "Frequência"}
+TIPOS_PLANILHA = {"notas": "Notas", "frequencia": "Frequência"}
+TIPOS = {**TIPOS_PLANILHA, "turmas": "Importar turmas"}
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else "—"
-templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS)
+templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA)
+templates.env.filters["descrever_turma"] = descrever_turma
+
+
+def _csv(nome: str, cabecalho: list[str], linhas: list[list]) -> Response:
+    """CSV separado por ; com BOM, para abrir direto no Excel."""
+    saida = io.StringIO()
+    escritor = csv.writer(saida, delimiter=";", lineterminator="\r\n")
+    escritor.writerow(cabecalho)
+    escritor.writerows(linhas)
+    seguro = re.sub(r"[^A-Za-z0-9._-]+", "-", unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode())
+    return Response(
+        ("\ufeff" + saida.getvalue()).encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{seguro}"'},
+    )
 
 
 class NaoAutenticado(Exception):
@@ -208,6 +230,71 @@ def criar_app(
             dono=repo.obter(envio.usuario_id),
             atualizar=envio.status in ("pendente", "processando"),
         )
+
+    # --- turmas e estudantes ------------------------------------------------
+    def turma_permitida(turma_id: int, usuario: Usuario) -> Turma:
+        turma = turmas_repo.obter(sessoes, turma_id)
+        if turma is None or (turma.usuario_id != usuario.id and not usuario.admin):
+            raise HTTPException(404, "Turma não encontrada")
+        return turma
+
+    @app.get("/turmas", response_class=HTMLResponse)
+    def tela_turmas(request: Request, usuario: Usuario = Depends(usuario_logado)):
+        lista = turmas_repo.listar(sessoes, None if usuario.admin else usuario.id)
+        pendentes = [
+            e for e in envios.listar(sessoes, usuario.id, limite=5)
+            if e.tipo == "turmas" and e.status in ("pendente", "processando")
+        ]
+        nomes = {u.id: u.nome or u.email for u in repo.listar()} if usuario.admin else {}
+        return pagina(
+            request,
+            "turmas.html",
+            usuario,
+            turmas=lista,
+            nomes=nomes,
+            pendente=pendentes[0] if pendentes else None,
+            credencial=repo.dados_credencial(usuario.id),
+            atualizar=bool(pendentes),
+        )
+
+    @app.post("/turmas/sincronizar")
+    def sincronizar_turmas(request: Request, csrf_token: str = Form(""), usuario: Usuario = Depends(usuario_logado)):
+        verificar_csrf(request, csrf_token)
+        if repo.dados_credencial(usuario.id) is None:
+            avisar(request, "Cadastre sua senha do SIGEduc antes de buscar as turmas.", "erro")
+            return voltar("/credencial")
+        envio_id, criado = envios.pedir_sincronizacao(sessoes, usuario.id)
+        if criado:
+            avisar(request, f"Busca de turmas e estudantes no SIGEduc na fila (nº {envio_id}).")
+        else:
+            avisar(request, f"Já existe uma busca em andamento (nº {envio_id}).", "erro")
+        return voltar("/turmas")
+
+    @app.get("/turmas/{turma_id}", response_class=HTMLResponse)
+    def detalhe_turma(request: Request, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
+        turma = turma_permitida(turma_id, usuario)
+        return pagina(request, "turma.html", usuario, turma=turma, estudantes=turmas_repo.estudantes(sessoes, turma.id))
+
+    @app.get("/turmas/{turma_id}/{arquivo}.csv")
+    def baixar_turma(turma_id: int, arquivo: str, usuario: Usuario = Depends(usuario_logado)):
+        turma = turma_permitida(turma_id, usuario)
+        alunos = turmas_repo.estudantes(sessoes, turma.id)
+        base = f"{turma.codigo}-{turma.componente}"
+        if arquivo == "estudantes":
+            return _csv(f"{base}-estudantes.csv", ["matricula", "nome"], [[a.matricula, a.nome] for a in alunos])
+        if arquivo == "modelo-notas":
+            return _csv(
+                f"{base}-notas.csv",
+                ["matricula", "nome", "turma", "disciplina", "bimestre", "nota"],
+                [[a.matricula, a.nome, turma.codigo, turma.componente, "", ""] for a in alunos],
+            )
+        if arquivo == "modelo-frequencia":
+            return _csv(
+                f"{base}-frequencia.csv",
+                ["matricula", "nome", "turma", "disciplina", "data", "presenca"],
+                [[a.matricula, a.nome, turma.codigo, turma.componente, "", "P"] for a in alunos],
+            )
+        raise HTTPException(404, "Arquivo não encontrado")
 
     # --- credencial do SIGEduc ----------------------------------------------
     @app.get("/credencial", response_class=HTMLResponse)
