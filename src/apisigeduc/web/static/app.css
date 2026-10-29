@@ -204,3 +204,29 @@ table.anual td.abaixo { background: var(--giz-claro); color: var(--giz-texto); f
   .ranking li { grid-template-columns: 28px 1fr auto; }
   .ranking .falta { grid-column: 2 / -1; justify-self: start; }
 }
+
+/* --- diário: chamada, aulas, ficha --- */
+textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--pauta); border-radius: 8px; font: inherit; color: var(--tinta); background: #fff; resize: vertical; }
+textarea:focus { border-color: var(--quadro); outline: none; box-shadow: 0 0 0 3px var(--quadro-claro); }
+input[type=date] { min-height: var(--toque); padding: 8px 12px; border: 1.5px solid var(--pauta); border-radius: 8px; font: inherit; width: 100%; background: #fff; }
+.topo-chamada { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.lista-chamada { list-style: none; margin: 0; padding: 0; }
+.lista-chamada li { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--pauta); }
+.aluno-chamada { flex: 1; display: flex; align-items: center; gap: 12px; margin: 0; padding: 10px 4px; min-height: 56px; font-weight: 400; cursor: pointer; }
+.aluno-chamada input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.aluno-chamada .nome { flex: 1; display: flex; flex-direction: column; }
+.aluno-chamada .estado { flex: none; min-width: 88px; text-align: center; padding: 8px 10px; border-radius: 99px; font-weight: 700; background: var(--quadro-claro); color: var(--quadro-escuro); }
+.aluno-chamada .estado::before { content: "✓ Presente"; }
+.aluno-chamada input:checked ~ .estado { background: var(--giz); color: var(--tinta); }
+.aluno-chamada input:checked ~ .estado::before { content: "✕ Falta"; }
+.aluno-chamada input:focus-visible ~ .estado { outline: 3px solid var(--foco); outline-offset: 2px; }
+.chip-anotacao { flex: none; font-size: 13px; padding: 4px 10px; border-radius: 99px; background: #EDF1EE; color: var(--grafite); text-decoration: none; }
+.ficha-topo { display: flex; align-items: center; gap: 16px; }
+.foto-aluno { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--quadro-claro); color: var(--quadro); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; overflow: hidden; }
+.foto-aluno img { width: 100%; height: 100%; object-fit: cover; }
+.foto-aluno.grande { width: 72px; height: 72px; font-size: 28px; }
+.anotacoes { list-style: none; margin: 16px 0 0; padding: 0; }
+.anotacoes li { border-top: 1px solid var(--pauta); padding: 12px 0; }
+.cabecalho-anotacao { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+table td.abaixo { background: var(--giz-claro); color: var(--giz-texto); font-weight: 700; }
+.link-aluno { color: inherit; text-decoration: none; } .link-aluno:hover { text-decoration: underline; }

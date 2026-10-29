@@ -27,6 +27,7 @@ from ..banco import Turma, Usuario
 from ..modelos import descrever_turma
 from ..config import Config, ConfigError
 from ..usuarios import RepositorioUsuarios, UsuarioNaoEncontrado
+from . import diario as diario_web
 from . import notas as notas_web
 
 log = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ templates.env.filters["data"] = lambda d: d.strftime("%d/%m/%Y %H:%M") if d else
 templates.env.globals.update(STATUS=STATUS, TIPOS=TIPOS, TIPOS_PLANILHA=TIPOS_PLANILHA, BIMESTRES=BIMESTRES, CALCULO_NOMES=CALCULO_NOMES)
 templates.env.filters["num"] = lambda v: "" if v is None else f"{v:g}".replace(".", ",")
 # notas e médias sempre com 1 casa (8,0; 5,5), para alinhar e ler como nota
+templates.env.filters["dia"] = lambda d: d.strftime("%d/%m/%Y") if d else "—"
 templates.env.filters["nota"] = lambda v: "" if v is None else f"{v:.1f}".replace(".", ",")
 templates.env.filters["descrever_turma"] = descrever_turma
 
@@ -298,8 +300,18 @@ def criar_app(
             e.composicao for e, _ in comp.listar(sessoes, turma.usuario_id)
             if turma.id in {t.id for _, t in comp.turmas_aplicadas(sessoes, e.composicao.id)}
         ]
+        from .. import diario
+
+        estudantes = turmas_repo.estudantes(sessoes, turma.id)
         return pagina(
-            request, "turma.html", usuario, turma=turma, estudantes=turmas_repo.estudantes(sessoes, turma.id), composicoes=aplicadas
+            request,
+            "turma.html",
+            usuario,
+            turma=turma,
+            estudantes=estudantes,
+            composicoes=aplicadas,
+            frequencia=diario.frequencia_da_turma(sessoes, turma.id),
+            marcados=diario.contagem_anotacoes(sessoes, usuario.id, [e.matricula for e in estudantes]),
         )
 
     @app.get("/turmas/{turma_id}/{arquivo}.csv")
@@ -431,18 +443,17 @@ def criar_app(
             avisar(request, str(e), "erro")
         return voltar("/admin/usuarios")
 
-    notas_web.registrar(
-        app,
-        SimpleNamespace(
-            config=config,
-            sessoes=sessoes,
-            repo=repo,
-            pagina=pagina,
-            avisar=avisar,
-            voltar=voltar,
-            verificar_csrf=verificar_csrf,
-            usuario_logado=usuario_logado,
-            turma_permitida=turma_permitida,
-        ),
+    contexto = SimpleNamespace(
+        config=config,
+        sessoes=sessoes,
+        repo=repo,
+        pagina=pagina,
+        avisar=avisar,
+        voltar=voltar,
+        verificar_csrf=verificar_csrf,
+        usuario_logado=usuario_logado,
+        turma_permitida=turma_permitida,
     )
+    notas_web.registrar(app, contexto)
+    diario_web.registrar(app, contexto)
     return app

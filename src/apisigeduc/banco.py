@@ -6,10 +6,11 @@ APISIGEDUC_BANCO_URL, por exemplo:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
+    Date,
     Float,
     DateTime,
     ForeignKey,
@@ -179,6 +180,50 @@ class NotaItem(Base):
     turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
     matricula: Mapped[str] = mapped_column(String(50))
     valor: Mapped[float] = mapped_column(Float)
+
+
+class Aula(Base):
+    """Aula dada numa turma: data, quantas aulas (geminadas contam 2), conteúdo e
+    observações da aula. A chamada fica em Frequencia."""
+
+    __tablename__ = "aulas"
+    __table_args__ = (UniqueConstraint("turma_id", "data"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    turma_id: Mapped[int] = mapped_column(ForeignKey("turmas.id", ondelete="CASCADE"), index=True)
+    data: Mapped[date] = mapped_column(Date)
+    quantidade: Mapped[int] = mapped_column(Integer, default=1)
+    conteudo: Mapped[str] = mapped_column(Text, default="")
+    observacoes: Mapped[str] = mapped_column(Text, default="")
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Frequencia(Base):
+    """Presença ou falta de um estudante numa aula (ligada à matrícula, como as notas)."""
+
+    __tablename__ = "frequencias"
+    __table_args__ = (UniqueConstraint("aula_id", "matricula"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    aula_id: Mapped[int] = mapped_column(ForeignKey("aulas.id", ondelete="CASCADE"), index=True)
+    matricula: Mapped[str] = mapped_column(String(50), index=True)
+    presente: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Anotacao(Base):
+    """Anotação do professor sobre um estudante (ex.: não sabe ler). PRIVADA de quem
+    escreveu: nem o administrador lê; nunca vai ao SIGEduc."""
+
+    __tablename__ = "anotacoes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    autor_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"), index=True)
+    matricula: Mapped[str] = mapped_column(String(50), index=True)
+    categoria: Mapped[str] = mapped_column(String(40))
+    texto: Mapped[str] = mapped_column(Text)
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 def normalizar_url(url: str) -> str:

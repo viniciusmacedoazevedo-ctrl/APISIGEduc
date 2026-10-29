@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}Chamada {{ turma.codigo }}{% endblock %}
+{% block conteudo %}
+<form method="post" action="/turmas/{{ turma.id }}/chamada" id="form-chamada">
+<input type="hidden" name="csrf_token" value="{{ csrf }}">
+<div class="cartao">
+  <p class="suave" style="margin:0 0 4px"><a href="/turmas/{{ turma.id }}">{{ turma.codigo }} {{ turma.componente }}</a> · <a href="/turmas/{{ turma.id }}/aulas">aulas e frequência</a></p>
+  <h1>Chamada</h1>
+  <div class="grade">
+    <div>
+      <label for="data">Data da aula</label>
+      <input type="date" id="data" name="data" value="{{ dia.isoformat() }}" max="{{ hoje.isoformat() }}" required
+             onchange="location.href='/turmas/{{ turma.id }}/chamada?data=' + this.value">
+    </div>
+    <div>
+      <label for="quantidade">Quantidade de aulas</label>
+      <select id="quantidade" name="quantidade">
+        {% for n in range(1, 7) %}<option value="{{ n }}" {{ "selected" if (aula.quantidade if aula else 1) == n }}>{{ n }}{{ " (geminadas)" if n > 1 }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+  {% if aula %}<p class="alerta" style="margin:12px 0 0">Já existe chamada em {{ dia|dia }}. Você está editando.</p>{% endif %}
+</div>
+
+<div class="cartao">
+  {% if estudantes %}
+  <div class="topo-chamada">
+    <h2 style="margin:0">Toque em quem faltou</h2>
+    <span class="suave" id="contador" aria-live="polite"></span>
+  </div>
+  <ul class="lista-chamada">
+    {% for e in estudantes %}
+    {% set faltou = presencas.get(e.matricula) is sameas false %}
+    <li>
+      <label class="aluno-chamada">
+        <input type="checkbox" name="falta" value="{{ e.matricula }}" {{ "checked" if faltou }}>
+        <span class="nome">{{ e.nome }}<span class="suave">{{ e.matricula }}</span></span>
+        <span class="estado" aria-hidden="true"></span>
+      </label>
+      {% if marcados.get(e.matricula) %}
+      <a class="chip-anotacao" href="/alunos/{{ e.matricula }}" title="Você tem anotações: {% for c in marcados[e.matricula] %}{{ CATEGORIAS.get(c, c) }}{{ ", " if not loop.last }}{% endfor %}">anotações</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="barra-acoes"><button class="botao">Salvar chamada</button><span class="suave">Conteúdo e observações da aula: logo abaixo</span></div>
+  {% else %}
+  <p>Esta turma ainda não tem estudantes. <a href="/turmas">Buscar turmas e estudantes no SIGEduc</a>.</p>
+  {% endif %}
+</div>
+
+<div class="cartao">
+  <label for="conteudo" style="margin-top:0">Conteúdo da aula</label>
+  <textarea id="conteudo" name="conteudo" rows="3" placeholder="Ex.: Revolução Industrial: causas e consequências…">{{ aula.conteudo if aula else "" }}</textarea>
+  <label for="observacoes">Observações da turma</label>
+  <textarea id="observacoes" name="observacoes" rows="3" placeholder="Ex.: turma agitada após o intervalo…">{{ aula.observacoes if aula else "" }}</textarea>
+  <p class="suave">Observações sobre um estudante específico ficam na ficha dele (toque no nome em Turmas).</p>
+  <div class="barra-acoes"><button class="botao">Salvar chamada</button></div>
+</div>
+</form>
+<script>
+(() => {
+  const caixas = [...document.querySelectorAll('input[name=falta]')];
+  const contador = document.getElementById('contador');
+  const atualizar = () => {
+    const faltas = caixas.filter((c) => c.checked).length;
+    contador.textContent = `${caixas.length - faltas} presentes, ${faltas} falta(s)`;
+  };
+  caixas.forEach((c) => c.addEventListener('change', atualizar));
+  if (contador) atualizar();
+})();
+</script>
+{% endblock %}

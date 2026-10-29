@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Aulas {{ turma.codigo }}{% endblock %}
+{% block conteudo %}
+<div class="cartao">
+  <p class="suave" style="margin:0 0 4px"><a href="/turmas/{{ turma.id }}">{{ turma.codigo }} {{ turma.componente }}</a></p>
+  <h1>Aulas e frequência</h1>
+  <div class="botoes" style="margin-top:8px">
+    <a class="botao" href="/turmas/{{ turma.id }}/chamada?data={{ hoje.isoformat() }}">Fazer a chamada de hoje</a>
+  </div>
+</div>
+
+{% if abaixo %}
+<div class="cartao">
+  <h2><span aria-hidden="true">▼ </span>Frequência abaixo de {{ minima|round(0)|int }}% ({{ abaixo|length }})</h2>
+  <p class="suave">A LDB exige frequência mínima de {{ minima|round(0)|int }}% do total de horas letivas para aprovação (art. 24, VI).</p>
+  <ul class="ranking">
+    {% for e in abaixo %}{% set f = frequencia[e.matricula] %}
+    <li><span class="posicao"></span><a class="quem" href="/alunos/{{ e.matricula }}">{{ e.nome }}</a>
+      <span class="nota-ranking">{{ f.percentual|nota }}%</span><span class="falta">{{ f.faltas }} falta(s)</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="cartao">
+  <h2>Aulas registradas ({{ aulas|length }})</h2>
+  {% if aulas %}
+  <div class="tabela"><table>
+    <tr><th>Data</th><th style="text-align:center">Aulas</th><th style="text-align:center">Faltas</th><th>Conteúdo</th><th></th></tr>
+    {% for a, faltas in aulas %}
+    <tr>
+      <td class="num"><a href="/turmas/{{ turma.id }}/chamada?data={{ a.data.isoformat() }}">{{ a.data|dia }}</a></td>
+      <td style="text-align:center" class="num">{{ a.quantidade }}</td>
+      <td style="text-align:center" class="num">{{ faltas }}</td>
+      <td>{{ a.conteudo or "—" }}{% if a.observacoes %}<br><span class="suave">{{ a.observacoes }}</span>{% endif %}</td>
+      <td><form method="post" action="/turmas/{{ turma.id }}/aulas/{{ a.id }}/excluir" style="margin:0" data-confirmar="Excluir a aula de {{ a.data|dia }} e a chamada dela?">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="remover" aria-label="Excluir aula de {{ a.data|dia }}">✕</button></form></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}
+  <p>Nenhuma aula registrada ainda. Comece pela chamada de hoje.</p>
+  {% endif %}
+</div>
+
+{% if aulas %}
+<div class="cartao">
+  <details>
+    <summary>Frequência de todos os estudantes</summary>
+    <div class="tabela"><table>
+      <tr><th>Estudante</th><th style="text-align:right">Faltas</th><th style="text-align:right">Frequência</th></tr>
+      {% for e in estudantes %}{% set f = frequencia[e.matricula] %}
+      <tr><td><a href="/alunos/{{ e.matricula }}">{{ e.nome }}</a></td><td style="text-align:right" class="num">{{ f.faltas }}</td>
+        <td style="text-align:right" class="num {{ 'abaixo' if f.abaixo_do_minimo }}">{{ f.percentual|nota if f.percentual is not none else "—" }}%</td></tr>
+      {% endfor %}
+    </table></div>
+  </details>
+</div>
+{% endif %}
+{% endblock %}

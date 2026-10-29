@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, Response
 
 from .. import composicoes as comp
 from .. import desempenho
+from .. import diario
 from .. import envios
 from .. import planilha_notas
 from .. import turmas as turmas_repo
@@ -212,6 +213,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             turma=turma,
             linhas=linhas,
             completos=sum(1 for l in linhas if l.media is not None),
+            marcados=diario.contagem_anotacoes(sessoes, usuario.id, [l.matricula for l in linhas]),
         )
 
     @app.post("/notas/{composicao_id}/turmas/{turma_id}")
@@ -300,6 +302,7 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
     def desempenho_anual(request: Request, turma_id: int, usuario: Usuario = Depends(usuario_logado)):
         turma = ctx.turma_permitida(turma_id, usuario)
         bimestres, alunos, avisos = desempenho.anual(sessoes, turma.usuario_id, turma.id, minima)
+        frequencia = diario.frequencia_da_turma(sessoes, turma.id)
         contagem = {s: sum(1 for a in alunos if a.situacao == s) for s in ("recuperacao", "atencao", "ok", "sem_notas")}
         return pagina(
             request,
@@ -311,6 +314,8 @@ def registrar(app: FastAPI, ctx: SimpleNamespace) -> None:
             avisos=avisos,
             contagem=contagem,
             minima_rede=minima,
+            frequencia=frequencia,
+            frequencia_minima=diario.FREQUENCIA_MINIMA,
         )
 
     @app.get("/notas/{composicao_id}/turmas/{turma_id}/planilha.xlsx")

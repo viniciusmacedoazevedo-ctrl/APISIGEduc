@@ -19,22 +19,24 @@
   </div>
   <div class="tabela" style="margin-top:16px"><table class="anual">
     <tr><th>Estudante</th>{% for b in [1, 2, 3, 4] %}<th style="text-align:center">{{ b }}º bim.</th>{% endfor %}
-        <th style="text-align:center">Média parcial</th><th style="text-align:center">Precisa nos próximos</th><th>Situação</th></tr>
+        <th style="text-align:center">Média parcial</th><th style="text-align:center">Precisa nos próximos</th><th style="text-align:center">Frequência</th><th>Situação</th></tr>
     {% for a in alunos %}
     <tr>
-      <td>{{ a.nome }}<br><span class="suave">{{ a.matricula }}</span></td>
+      <td><a href="/alunos/{{ a.matricula }}">{{ a.nome }}</a><br><span class="suave">{{ a.matricula }}</span></td>
       {% for b in [1, 2, 3, 4] %}
       {% set m = a.bimestres.get(b) %}
       <td style="text-align:center" class="num {{ 'abaixo' if m is not none and m < minima_rede }}">{% if m is not none %}{{ m|nota }}{% if m < minima_rede %}<span class="sr"> (abaixo)</span>{% endif %}{% else %}<span class="suave">—</span>{% endif %}</td>
       {% endfor %}
       <td style="text-align:center" class="num"><strong>{{ a.media_parcial|nota if a.media_parcial is not none else "—" }}</strong></td>
       <td style="text-align:center" class="num">{% if a.necessario is none %}<span class="suave">—</span>{% elif a.necessario <= 0 %}<span class="suave">já alcançou</span>{% elif a.necessario > 10 %}<span class="suave">mais de 10</span>{% else %}{{ a.necessario|nota }}{% endif %}</td>
+      {% set f = frequencia.get(a.matricula) %}
+      <td style="text-align:center" class="num {{ 'abaixo' if f and f.abaixo_do_minimo }}">{{ (f.percentual|nota ~ "%") if f and f.percentual is not none else "—" }}</td>
       <td>{{ g.situacao(a.situacao) }}</td>
     </tr>
     {% endfor %}
   </table></div>
   <p class="suave">"Precisa nos próximos": média necessária nos bimestres que faltam para a média anual chegar a {{ minima_rede|nota }}.
-    Células com fundo amarelo: bimestre abaixo da média.</p>
+    Células com fundo amarelo: bimestre abaixo da média ou frequência abaixo de {{ frequencia_minima|round(0)|int }}% (LDB, art. 24, VI).</p>
   {% else %}
   <p>Nenhuma composição de notas aplicada nesta turma ainda. <a href="/notas">Criar ou aplicar uma composição</a>.</p>
   {% endif %}

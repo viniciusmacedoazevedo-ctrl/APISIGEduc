@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}{{ nome }}{% endblock %}
+{% block conteudo %}
+<div class="cartao ficha-topo">
+  <div class="foto-aluno grande" aria-hidden="true">{{ nome[:1] }}</div>
+  <div>
+    <h1 style="margin:0">{{ nome }}</h1>
+    <p class="suave" style="margin:4px 0 0">Matrícula {{ matricula }}</p>
+  </div>
+</div>
+
+<div class="cartao">
+  <h2>Nas suas turmas</h2>
+  <div class="tabela"><table>
+    <tr><th>Turma</th>{% for b in [1, 2, 3, 4] %}<th style="text-align:center">{{ b }}º bim.</th>{% endfor %}<th style="text-align:right">Frequência</th></tr>
+    {% for t, f, medias in turmas %}
+    <tr>
+      <td><a href="/turmas/{{ t.id }}">{{ t.codigo }}</a><br><span class="suave">{{ t.componente }}</span></td>
+      {% for b in [1, 2, 3, 4] %}{% set m = medias.get(b) %}
+      <td style="text-align:center" class="num {{ 'abaixo' if m is not none and m < minima }}">{{ m|nota if m is not none else "—" }}</td>
+      {% endfor %}
+      <td style="text-align:right" class="num {{ 'abaixo' if f and f.abaixo_do_minimo }}">{% if f and f.percentual is not none %}{{ f.percentual|nota }}% <span class="suave">({{ f.faltas }} falta(s))</span>{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  <p class="suave">Fundo amarelo: média abaixo de {{ minima|nota }} ou frequência abaixo de {{ frequencia_minima|round(0)|int }}%.</p>
+</div>
+
+<div class="cartao">
+  <h2>Minhas anotações</h2>
+  <p class="suave">Só você vê o que escreve aqui. Nem o administrador lê, e nada disso vai ao SIGEduc.
+    Registre fatos observados, sem diagnósticos, e com cuidado: são dados de um menor de idade.</p>
+  <form method="post" action="/alunos/{{ matricula }}/anotacoes">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label for="categoria">Assunto</label>
+    <select id="categoria" name="categoria">{% for v, rotulo in CATEGORIAS.items() %}<option value="{{ v }}">{{ rotulo }}</option>{% endfor %}</select>
+    <label for="texto">Anotação</label>
+    <textarea id="texto" name="texto" rows="3" required maxlength="4000" placeholder="Ex.: ainda não lê textos curtos; acompanha melhor com leitura em voz alta…"></textarea>
+    <div class="botoes"><button class="botao">Salvar anotação</button></div>
+  </form>
+  {% if anotacoes %}
+  <ul class="anotacoes">
+    {% for a in anotacoes %}
+    <li>
+      <div class="cabecalho-anotacao"><span class="chip">{{ CATEGORIAS.get(a.categoria, a.categoria) }}</span>
+        <span class="suave">{{ a.criado_em|data }}</span>
+        <form method="post" action="/alunos/{{ matricula }}/anotacoes/{{ a.id }}/excluir" style="margin:0 0 0 auto" data-confirmar="Excluir esta anotação?">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="remover" aria-label="Excluir anotação">✕</button></form></div>
+      <p style="margin:6px 0 0;white-space:pre-wrap">{{ a.texto }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}
