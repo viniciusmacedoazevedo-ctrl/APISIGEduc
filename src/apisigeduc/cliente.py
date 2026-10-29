@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import re
+import sys
 from datetime import datetime
 from pathlib import Path
 
 from playwright.sync_api import Browser, Page, Playwright, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from . import seletores as S
 from .config import Config
@@ -48,21 +51,35 @@ class SigeducCliente:
     def __exit__(self, tipo, valor, tb) -> None:
         if valor is not None:
             self.capturar_tela("erro")
+            # com o navegador visível e alguém no terminal, deixa a tela aberta para ver o erro
+            if not self.config.headless and sys.stdin and sys.stdin.isatty():
+                try:
+                    input(f"\nERRO: {valor}\nO navegador ficou aberto. Aperte Enter para fechar... ")
+                except (EOFError, KeyboardInterrupt):
+                    pass
         if self._browser:
             self._browser.close()
         if self._pw:
             self._pw.stop()
 
     def capturar_tela(self, prefixo: str) -> Path | None:
+        """Salva imagem e HTML de cada aba aberta (o HTML mostra como a tela é montada)."""
+        primeira = None
         try:
             self.pasta_capturas.mkdir(exist_ok=True)
-            caminho = self.pasta_capturas / f"{prefixo}-{datetime.now():%Y%m%d-%H%M%S}.png"
-            self.page.screenshot(path=str(caminho), full_page=True)
-            log.info("Captura de tela salva em %s", caminho)
-            return caminho
+            base = f"{prefixo}-{datetime.now():%Y%m%d-%H%M%S}"
+            for i, pagina in enumerate(self.page.context.pages):
+                nome = base if i == 0 else f"{base}-aba{i + 1}"
+                imagem = self.pasta_capturas / f"{nome}.png"
+                pagina.screenshot(path=str(imagem), full_page=True)
+                (self.pasta_capturas / f"{nome}.html").write_text(
+                    f"<!-- {pagina.url} -->\n{pagina.content()}", encoding="utf-8"
+                )
+                log.info("Captura de tela salva em %s (e .html)", imagem)
+                primeira = primeira or imagem
         except Exception:  # captura é só diagnóstico; não deve mascarar o erro original
             log.debug("Falha ao capturar tela", exc_info=True)
-            return None
+        return primeira
 
     def login(self) -> None:
         log.info("Acessando %s", self.config.url)
@@ -70,19 +87,40 @@ class SigeducCliente:
         self.page.fill(S.LOGIN_USUARIO, self.credencial.login)
         self.page.fill(S.LOGIN_SENHA, self.credencial.senha)
         botao = self.page.locator(S.LOGIN_ENTRAR)
-        if botao.count() > 0:
-            botao.first.click()
-        else:
-            log.debug("Botão de login não encontrado; enviando o formulário diretamente")
-            self.page.locator(S.LOGIN_SENHA).evaluate("campo => campo.form.requestSubmit()")
-        self.page.wait_for_load_state("networkidle")
+        # espera a resposta do SIGEduc: sem isso a página de login ainda estaria
+        # na tela quando o resultado fosse conferido
+        try:
+            with self.page.expect_navigation(wait_until="load"):
+                if botao.count() > 0:
+                    botao.first.click()
+                else:
+                    log.debug("Botão de login não encontrado; enviando o formulário diretamente")
+                    self.page.locator(S.LOGIN_SENHA).evaluate("campo => campo.form.requestSubmit()")
+        except PlaywrightTimeoutError:
+            log.debug("O envio do login não mudou de página")
+        self.esperar_carregar()
 
         ainda_no_login = self.page.locator(S.LOGIN_SENHA).count() > 0
         if ainda_no_login and self.page.locator(S.LOGADO).count() == 0:
-            erro = self.page.locator(S.LOGIN_ERRO)
-            mensagem = erro.first.inner_text().strip() if erro.count() else "motivo desconhecido"
-            raise ErroLogin(f"Não foi possível entrar no SIGEduc: {mensagem}")
-        log.info("Login realizado como %s", self.credencial.login)
+            raise ErroLogin(f"Não foi possível entrar no SIGEduc: {self._motivo_falha_login()}")
+        log.info("Login realizado como %s (%s)", self.credencial.login, self.page.url)
+
+    def esperar_carregar(self) -> None:
+        """Espera a rede acalmar, sem falhar em páginas que nunca ficam totalmente paradas."""
+        try:
+            self.page.wait_for_load_state("networkidle", timeout=min(self.config.timeout_ms, 10000))
+        except PlaywrightTimeoutError:
+            pass
+
+    def _motivo_falha_login(self) -> str:
+        erro = self.page.locator(S.LOGIN_ERRO)
+        if erro.count() and erro.first.inner_text().strip():
+            return erro.first.inner_text().strip()
+        texto = re.sub(r"\s+", " ", self.page.locator("body").inner_text())
+        frase = re.search(r"[^.!:]*(inv[aá]lid|incorret|bloquead|captcha|expirad|n[aã]o confere)[^.!]*", texto, re.I)
+        if frase:
+            return frase.group(0).strip()
+        return f"o SIGEduc continuou na tela de login ({self.page.url}, título: {self.page.title()!r})"
 
     def pausa(self) -> None:
         self.page.wait_for_timeout(self.config.pausa_ms)

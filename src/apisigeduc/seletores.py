@@ -17,7 +17,7 @@ LOGIN_ENTRAR = (
     "form:has(input[name='user.senha']) input[type='image'], "
     "form:has(input[name='user.senha']) button"
 )
-LOGIN_ERRO = ".erros, #painel-erros, .msgErro"
+LOGIN_ERRO = ".erros, #painel-erros, .msgErro, .error, .alert-danger, #mensagens-erro"
 # Elemento que só existe depois de logado (ex.: link "Sair"). Também se
 # considera logado quando o campo de senha some da página.
 LOGADO = "a:has-text('Sair'), a:has-text('SAIR')"
@@ -52,7 +52,11 @@ PORTAL_PROFESSOR = (
     "button:has-text('Portal do Professor'), "
     ":text-is('Portal do Professor')"
 )
-# A tabela "Minhas Turmas" é localizada pelos nomes das colunas (tarefas/turmas.py).
+# A tabela "Minhas Turmas" é localizada pelos nomes das colunas (tarefas/turmas.py);
+# este seletor só indica que ela já carregou.
+PORTAL_TABELA_TURMAS = "th:has-text('Componente'), td:text-is('Componente')"
 # Ao clicar no código da turma (ex.: EFV6A) abre a Escola Digital da turma;
 # no menu lateral Turmas > Estudantes ficam os cartões com nome e matrícula.
 TURMA_ESTUDANTES = "a:text-is('Estudantes'), a:has-text('Estudantes')"
+# Indica que a lista de estudantes carregou (cartões com "Matrícula: 000...").
+TURMA_LISTA_ESTUDANTES = "text=/Matr[ií]cula\\s*:?\\s*\\d{4,}/"

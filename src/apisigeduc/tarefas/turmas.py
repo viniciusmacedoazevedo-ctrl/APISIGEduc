@@ -14,6 +14,8 @@ import logging
 import re
 import unicodedata
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from .. import seletores as S
 from ..cliente import SigeducCliente
 from ..modelos import CODIGO_TURMA, Estudante, TurmaPortal
@@ -170,15 +172,27 @@ class LeitorPortal:
     def tabelas(self) -> list[list[list[str]]]:
         return self.page.evaluate(_JS_TABELAS)
 
+    def _esperar(self, pagina, seletor: str, descricao: str) -> None:
+        """Espera o conteúdo esperado aparecer (o SIGEduc pode demorar a responder)."""
+        try:
+            pagina.locator(seletor).first.wait_for(state="attached")
+        except PlaywrightTimeoutError:
+            raise LookupError(f"{descricao} não apareceu na tela ({pagina.url})") from None
+
+    def _no_portal(self) -> bool:
+        return self.page.locator(S.PORTAL_TABELA_TURMAS).count() > 0
+
     def abrir_portal(self) -> None:
+        if self._no_portal():
+            return
         botao = self.page.locator(S.PORTAL_PROFESSOR)
         if botao.count() > 0:
             botao.first.click()
-            self.page.wait_for_load_state("networkidle")
         elif self._url_portal:
             self.page.goto(self._url_portal)
         else:
-            raise LookupError("Link 'Portal do Professor' não encontrado na página inicial")
+            raise LookupError(f"'Portal do Professor' não encontrado na tela ({self.page.url})")
+        self._esperar(self.page, S.PORTAL_TABELA_TURMAS, "A tabela 'Minhas Turmas' do Portal do Professor")
         self._url_portal = self.page.url
 
     def listar_turmas(self) -> list[TurmaPortal]:
@@ -214,24 +228,23 @@ class LeitorPortal:
             contexto.on("page", ao_abrir)
             try:
                 link.first.click()
-                self.page.wait_for_load_state("networkidle")
-                self.page.wait_for_timeout(500)  # janela aberta por script
+                # espera a turma abrir: o menu "Estudantes" aparece nesta aba ou numa nova
+                for _ in range(self.cliente.config.timeout_ms // 250):
+                    if novas or self.page.locator(S.TURMA_ESTUDANTES).count() > 0:
+                        break
+                    self.page.wait_for_timeout(250)
             finally:
                 contexto.remove_listener("page", ao_abrir)
-            if not novas:
-                return self.page
-            nova = novas[-1]
-        nova.wait_for_load_state("networkidle")
+            nova = novas[-1] if novas else self.page
+        self._esperar(nova, S.TURMA_ESTUDANTES, f"O menu 'Estudantes' da turma {turma.codigo}")
         return nova
 
     def listar_estudantes(self, turma: TurmaPortal) -> list[Estudante]:
         pagina = self.abrir_turma(turma)
         try:
-            menu = pagina.locator(S.TURMA_ESTUDANTES)
-            if menu.count() == 0:
-                raise LookupError(f"Opção 'Estudantes' não encontrada na turma {turma.codigo}")
-            menu.first.click()
-            pagina.wait_for_load_state("networkidle")
+            pagina.locator(S.TURMA_ESTUDANTES).first.click()
+            self._esperar(pagina, S.TURMA_LISTA_ESTUDANTES, f"A lista de estudantes da turma {turma.codigo}")
+            pagina.wait_for_timeout(500)  # termina de desenhar os cartões
             estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES))
             if not estudantes:  # layout em tabela
                 estudantes = estudantes_da_tabela(pagina.evaluate(_JS_TABELAS))
