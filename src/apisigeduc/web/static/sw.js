@@ -2,7 +2,7 @@
 // Guarda só os arquivos fixos do app (estilo, ícones, página "sem conexão").
 // As páginas com dados de alunos e notas NUNCA são guardadas no aparelho:
 // vêm sempre do servidor, e sem conexão aparece a página "sem conexão".
-const VERSAO = "apisigeduc-v3";
+const VERSAO = "apisigeduc-v4";
 const FIXOS = [
   "/static/app.css",
   "/static/offline.html",

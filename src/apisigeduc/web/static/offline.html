@@ -12,8 +12,13 @@
   <div class="cartao estreito">
     <img src="/static/icones/icone.svg" alt="" width="56" height="56">
     <h1 style="margin-top:12px">Sem conexão com o servidor</h1>
-    <p>As notas não ficam guardadas no aparelho, então é preciso conexão para abrir esta tela.
-      Verifique o Wi-Fi ou os dados móveis e tente de novo.</p>
+    <p>O APISIGEduc não respondeu. Verifique:</p>
+    <ul>
+      <li>No computador onde o sistema roda, se a janela do <strong>apisigeduc web</strong> está aberta
+        e mostra "Uvicorn running". Se não estiver, inicie de novo.</li>
+      <li>No celular, se o Wi-Fi ou os dados móveis estão ligados.</li>
+    </ul>
+    <p class="suave">As notas não ficam guardadas no aparelho, por segurança, então é preciso conexão para abrir as telas.</p>
     <p class="suave">Notas que você digitou e ainda não salvou continuam na tela anterior: volte e toque em
       "Salvar notas" quando a conexão voltar.</p>
     <div class="botoes"><button class="botao" onclick="location.reload()">Tentar de novo</button></div>
