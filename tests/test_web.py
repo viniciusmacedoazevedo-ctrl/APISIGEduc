@@ -125,7 +125,7 @@ def test_turmas_na_web(app, sessoes, repo):
     turmas_repo.salvar(
         sessoes,
         prof.id,
-        [(TurmaPortal("EFV6A", "ESCOLA X", "EF", "6º ANO", "História", 2), [Estudante("202630270867", "IVAN GLEYSON")])],
+        [(TurmaPortal("EFV6A", "ESCOLA X", "EF", "6º ANO", "História", 2), [Estudante("202600000001", "ANA CLARA SOUZA")])],
     )
     [(turma, _)] = turmas_repo.listar(sessoes, prof.id)
 
@@ -135,12 +135,12 @@ def test_turmas_na_web(app, sessoes, repo):
     assert "Cadastre sua" in r.text  # sem senha do SIGEduc, sem botão de busca
 
     r = cliente.get(f"/turmas/{turma.id}")
-    assert "IVAN GLEYSON" in r.text and "202630270867" in r.text
+    assert "ANA CLARA SOUZA" in r.text and "202600000001" in r.text
 
     r = cliente.get(f"/turmas/{turma.id}/modelo-notas.csv")
     assert r.headers["content-type"].startswith("text/csv")
     linhas = r.content.decode("utf-8-sig").splitlines()
-    assert linhas == ["matricula;nome;turma;disciplina;bimestre;nota", "202630270867;IVAN GLEYSON;EFV6A;História;;"]
+    assert linhas == ["matricula;nome;turma;disciplina;bimestre;nota", "202600000001;ANA CLARA SOUZA;EFV6A;História;;"]
 
     # pedir a busca
     repo.definir_credencial(prof.id, "p", "s")

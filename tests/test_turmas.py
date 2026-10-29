@@ -22,14 +22,14 @@ PORTAL = """
   <tr><th colspan="2">Turma</th><th>Ano</th><th>Escola</th><th>Etapa de Ensino</th><th>Ano / Série</th>
       <th>Componente</th><th>Qtd. de Estudantes</th><th colspan="4"></th></tr>
   <tr><td><a href="#"><img></a></td><td><a href="#">EFV6A</a></td><td>2026.1</td>
-      <td>ESCOLA ESTADUAL HENRIQUE CASTRICIANO DE SOUZA</td><td>ENSINO FUNDAMENTAL</td><td>6º ANO</td>
+      <td>ESCOLA ESTADUAL EXEMPLO UM</td><td>ENSINO FUNDAMENTAL</td><td>6º ANO</td>
       <td>História</td><td>36</td><td></td><td></td><td></td><td></td></tr>
   <tr><td><a href="#"><img></a></td><td><a href="#">EFM6A</a></td><td>2026.1</td>
-      <td>ESCOLA ESTADUAL DJALMA ARANHA MARINHO</td><td>ENSINO FUNDAMENTAL</td><td>6º ANO</td>
+      <td>ESCOLA ESTADUAL EXEMPLO DOIS</td><td>ENSINO FUNDAMENTAL</td><td>6º ANO</td>
       <td>História</td><td>38</td><td></td><td></td><td></td><td></td></tr>
  </table>
 </td><td>
- <table><tr><th colspan="2">Dados Pessoais</th></tr><tr><td>Matrícula:</td><td>1291971</td></tr></table>
+ <table><tr><th colspan="2">Dados Pessoais</th></tr><tr><td>Matrícula:</td><td>1000000</td></tr></table>
 </td></tr></table>
 """
 CARTAO = """<td><div><span>● {nome}</span> <img></div><table><tr><td><img></td><td>
@@ -37,9 +37,9 @@ CARTAO = """<td><div><span>● {nome}</span> <img></div><table><tr><td><img></td
 ESTUDANTES = "<h2>Estudantes (3)</h2><table><tr>" + "".join(
     CARTAO.format(nome=n, mat=m)
     for n, m in [
-        ("IVAN GLEYSON ZACARIAS DE OLIVEIRA", "202630270867"),
-        ("ALANNY ESTEFANY CAVALCANTE DA SILVA", "202630173200"),
-        ("WESLEY VARELA PEREIRA DA SILVA", "202630441436"),
+        ("ANA CLARA SOUZA LIMA", "202600000001"),
+        ("BRUNO HENRIQUE COSTA DA SILVA", "202600000002"),
+        ("CARLA REGINA MOURA DIAS", "202600000003"),
     ]
 ) + "</tr></table>"
 
@@ -92,9 +92,9 @@ def test_leitura_no_navegador():
         pagina.set_content('<meta charset="utf-8">' + ESTUDANTES)
         estudantes = estudantes_dos_cartoes(pagina.evaluate(_JS_CARTOES))
         assert estudantes == [
-            Estudante("202630270867", "IVAN GLEYSON ZACARIAS DE OLIVEIRA"),
-            Estudante("202630173200", "ALANNY ESTEFANY CAVALCANTE DA SILVA"),
-            Estudante("202630441436", "WESLEY VARELA PEREIRA DA SILVA"),
+            Estudante("202600000001", "ANA CLARA SOUZA LIMA"),
+            Estudante("202600000002", "BRUNO HENRIQUE COSTA DA SILVA"),
+            Estudante("202600000003", "CARLA REGINA MOURA DIAS"),
         ]
     finally:
         navegador.close()
